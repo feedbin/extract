@@ -31,13 +31,13 @@ App.get("/parser/:user/:signature", (request, response, next) => {
     }).catch(next);
 });
 
-App.listen((process.env.PORT || 3000), () => process.send('ready'));
+const server = App.listen((process.env.PORT || 3000));
 
 process.on('SIGINT', () => {
-    server.close(function(err) {
-        if (err) {
-            console.error(err)
-            process.exit(1)
+    server.close(function(error) {
+        if (error) {
+            console.error(err);
+            process.exit(1);
         }
     })
 })
