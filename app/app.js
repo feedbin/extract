@@ -35,6 +35,7 @@ const server = App.listen((process.env.PORT || 3000));
 
 process.on('SIGINT', () => {
     server.close(function(error) {
+        console.error("SIGINT received, shutting down");
         if (error) {
             console.error(err);
             process.exit(1);
