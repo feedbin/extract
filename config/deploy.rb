@@ -15,7 +15,7 @@ namespace :app do
   task :start do
     on roles(:app) do |host|
       within release_path do
-        execute :sudo, :service, :extract, :reload
+        execute :pm2, :reload, "ecosystem.config.js", "--env production"
       end
     end
   end
@@ -24,7 +24,7 @@ namespace :app do
   task :stop do
     on roles(:app) do |host|
       within release_path do
-        execute :sudo, :service, :extract, :reload
+        execute :pm2, :stop
       end
     end
   end
@@ -33,7 +33,7 @@ namespace :app do
   task :restart do
     on roles(:app) do |host|
       within release_path do
-        execute :sudo, :service, :extract, :reload
+        execute :pm2, :reload, "ecosystem.config.js", "--env production"
       end
     end
   end

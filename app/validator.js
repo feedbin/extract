@@ -13,7 +13,7 @@ class Validator {
         return new Promise((resolve, reject) => {
             const key = this.key().then(key => {
                 if (!this.data) {
-                    reject("data required");
+                    reject(`data required`);
                 }
                 if (this.calculateSignature(key) !== this.signature) {
                     reject(`invalid signature`);
