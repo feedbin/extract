@@ -14,7 +14,7 @@ App.get("/health_check", (request, response) => {
     response.send("200 OK");
 });
 
-App.get("/parser/:user/:signature", (request, response) => {
+App.get("/parser/:user/:signature", (request, response, next) => {
     const user = request.params.user;
     const signature = request.params.signature;
     const url = decodeURL(request.query.base64_url);
@@ -27,7 +27,7 @@ App.get("/parser/:user/:signature", (request, response) => {
             response.status(500);
         }
         response.send(result);
-    });
+    }).catch(next);
 });
 
 App.listen(process.env.PORT || 3000);
