@@ -10,23 +10,24 @@ function decodeURL(encodedURL) {
     return Buffer.from(encodedURL, 'base64').toString("utf-8");
 }
 
+function getParams(request) {
+    const user = request.params.user;
+    const signature = request.params.signature;
+    const url = decodeURL(request.query.base64_url);
+    return {user, signature, url}
+}
+
 App.get("/health_check", (request, response) => {
     response.send("200 OK");
 });
 
 App.get("/parser/:user/:signature", (request, response, next) => {
-    const user = request.params.user;
-    const signature = request.params.signature;
-    const url = decodeURL(request.query.base64_url);
-
-    new Validator(user, url, signature).validate();
-
-    Mercury.parse(url).then(result => {
-        const { error } = result;
-        if (error) {
-            response.status(500);
-        }
-        response.send(result);
+    const {user, signature, url} = getParams(request);
+    new Validator(user, url, signature).validate().then(result => {
+        Mercury.parse(url).then(result => {
+            response.status(("error" in result ? 500 : 200))
+            response.send(result);
+        }).catch(next);
     }).catch(next);
 });
 
