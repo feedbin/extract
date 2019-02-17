@@ -10,6 +10,10 @@ function decodeURL(encodedURL) {
     return Buffer.from(encodedURL, 'base64').toString("utf-8");
 }
 
+App.get("/health_check", (request, response) => {
+    response.send("200 OK");
+});
+
 App.get("/parser/:user/:signature", (request, response) => {
     const user = request.params.user;
     const signature = request.params.signature;
