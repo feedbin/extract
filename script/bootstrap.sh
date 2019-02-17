@@ -1,2 +1,2 @@
 #!/bin/bash
-npm install --save
+npm install --save --quiet
