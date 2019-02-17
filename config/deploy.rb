@@ -47,7 +47,16 @@ namespace :app do
     end
   end
 
+  desc "Add user"
+  task :add_user do
+    on roles(:app) do
+      within release_path do
+        execute :echo, "#{ENV['password']} > users/#{ENV['user']}"
+      end
+    end
+  end
+
 end
 
 after "deploy:updated", "app:bootstrap"
-after "app:export", "app:restart"
+after "deploy:published", "app:restart"
