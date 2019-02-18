@@ -37,7 +37,7 @@ Installation
     node app/app.js
     ```
 
-    Alternatively, extract includes an `ecosystem.config.js` to use with [pm2](https://github.com/Unitech/pm2)
+    Alternatively, extract includes an `ecosystem.config.js` to use with [pm2](https://github.com/Unitech/pm2). You could use this in production.
 
     ```bash
     npm install -g pm2
