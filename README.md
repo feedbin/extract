@@ -26,28 +26,28 @@ Installation
 
 3. Install the dependencies.
 
-  ```bash
-  cd extract
-  npm install
-  ```
+    ```bash
+    cd extract
+    npm install
+    ```
 
 4. Run the server
 
-  ```bash
-  node app/app.js
-  ```
+    ```bash
+    node app/app.js
+    ```
 
-  extract also include an `ecosystem.config.js` to use with [pm2](https://github.com/Unitech/pm2)
+    extract also include an `ecosystem.config.js` to use with [pm2](https://github.com/Unitech/pm2)
 
-  ```bash
-  npm install -g pm2
-  pm2 start ecosystem.config.js
-  ```
+    ```bash
+    npm install -g pm2
+    pm2 start ecosystem.config.js
+    ```
 
 Usage
 -----
 
-Extract has a simple directory structure for creating users and secret keys. To make a new user run the following:
+Extract has a simple directory structure for creating users and secret keys. in the `./users` directory, the filename is the username and the contents is the secret key. To make a new user, run the following:
 
 ```
 cd extract
