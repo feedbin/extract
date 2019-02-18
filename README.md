@@ -52,7 +52,9 @@ Extract has a simple file-based system for creating users and secret keys. This 
 ```
 cd extract
 mkdir users
-echo "PASSWORD" > users/USERNAME
+
+# use your own secret key and username
+echo "SECRET_KEY" > users/USERNAME
 ```
 
 Once a username and password is created you can make a request.
