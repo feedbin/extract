@@ -8,10 +8,17 @@ Extract is a wrapper to turn the [Mercury Parser](https://github.com/postlight/m
 Why?
 ----
 
-Mercury already offers an [API component](https://github.com/postlight/mercury-parser-api) meant to be deployed to AWS Lambda. There are a few reasons why this exists as an alternative.
+Mercury already offers an [API component](https://github.com/postlight/mercury-parser-api), meant to be deployed to AWS Lambda. There are a few reasons why this exists as an alternative.
 
 1. Deploy elsewhere. Extract is a vanilla express-js node app that is easy to run in a VM and has no platform specific dependencies.
+
 2. Built-in authorization system.
+
+3. Performance. In my experience running it on a vm has been faster than the lambda version.
+
+Here's a graph where you can see a significant decrease in average response time around the `17. Feb` mark. This is when Feedbin switched from the lambda hosted version to extract running on a VPS.
+
+![Response Time](https://user-images.githubusercontent.com/133809/52974385-2e73a880-3376-11e9-8523-820f74546d52.png)
 
 Installation
 ------------
@@ -40,7 +47,7 @@ Installation
     Alternatively, extract includes an `ecosystem.config.js` to use with [pm2](https://github.com/Unitech/pm2). You could use this in production.
 
     ```bash
-    npm install -g pm2
+    npm install --global pm2
     pm2 start ecosystem.config.js
     ```
 
