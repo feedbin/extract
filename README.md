@@ -57,7 +57,7 @@ mkdir users
 echo "SECRET_KEY" > users/USERNAME
 ```
 
-Once a username and password is created you can make a request.
+Once a username and password has been created, you can make a request.
 
 An example request looks like:
 
