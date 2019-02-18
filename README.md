@@ -37,7 +37,7 @@ Installation
     node app/app.js
     ```
 
-    extract also include an `ecosystem.config.js` to use with [pm2](https://github.com/Unitech/pm2)
+    Alternatively, extract include an `ecosystem.config.js` to use with [pm2](https://github.com/Unitech/pm2)
 
     ```bash
     npm install -g pm2
@@ -47,7 +47,7 @@ Installation
 Usage
 -----
 
-Extract has a simple directory structure for creating users and secret keys. in the `./users` directory, the filename is the username and the contents is the secret key. To make a new user, run the following:
+Extract has a simple file-based system for creating users and secret keys. This allows users to be added/removed while the system is running, with no database dependencies. In the `./users` directory, the filename is the username and the contents is the secret key. To make a new user, run the following:
 
 ```
 cd extract
@@ -75,7 +75,7 @@ If your platform does not offer a URL safe base64 option, you can replicate it. 
 
 - `+` => `-`
 - `/` => `_`
-- `\n` => ""
+- `\n` => `""`
 
 Here's a sample implementation in ruby. You can use this as a reference for matching your implementation.
 
