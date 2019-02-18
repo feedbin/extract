@@ -20,9 +20,9 @@ Installation
 
 2. Clone extract
 
-  ```bash
-  git clone https://github.com/feedbin/extract.git
-  ```
+    ```bash
+    git clone https://github.com/feedbin/extract.git
+    ```
 
 3. Install the dependencies.
 
