@@ -14,7 +14,7 @@ Mercury already offers an [API component](https://github.com/postlight/mercury-p
 
 2. Built-in authorization system.
 
-3. Performance. In my experience running it on a vm has been faster than the lambda version.
+3. Performance. In my experience, running it on a VM has been faster than the lambda version.
 
 Here's a graph where you can see a decrease in average response time around the `17. Feb` mark. This is when Feedbin switched from the lambda hosted version, to extract running on a VPS.
 
