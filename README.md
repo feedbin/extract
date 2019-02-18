@@ -54,7 +54,7 @@ Installation
 Usage
 -----
 
-Extract has a simple file-based system for creating users and secret keys. This allows users to be added/removed while the system is running, with no database dependencies. In the `./users` directory, the filename is the username and the contents is the secret key. To make a new user, run the following:
+Extract has a simple, file-based system for creating users and secret keys. This allows users to be added/removed while the system is running. In the `./users` directory, the filename is the username and the contents is the secret key. To make a new user, run the following:
 
 ```
 cd extract
