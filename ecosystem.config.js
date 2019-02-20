@@ -1,7 +1,7 @@
 module.exports = {
     apps : [{
         name: "extract",
-        script: "./app/app.js",
+        script: process.env.PWD + "/app/app.js",
         instances: "max",
         cwd: process.env.PWD,
         env: {
