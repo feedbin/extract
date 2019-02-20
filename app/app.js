@@ -1,13 +1,13 @@
 const Express = require("express");
 const App = Express();
 const Mercury = require("@postlight/mercury-parser");
-const Validator = require('./validator');
+const Validator = require("./validator");
 
 function decodeURL(encodedURL) {
     if (!encodedURL) {
         throw new Error("base64_url parameter required");
     }
-    return Buffer.from(encodedURL, 'base64').toString("utf-8");
+    return Buffer.from(encodedURL, "base64").toString("utf-8");
 }
 
 function getParams(request) {
@@ -33,7 +33,7 @@ App.get("/parser/:user/:signature", (request, response, next) => {
 
 const server = App.listen((process.env.PORT || 3000));
 
-process.on('SIGINT', () => {
+process.on("SIGINT", () => {
     server.close(function(error) {
         console.error("SIGINT received, shutting down");
         if (error) {
