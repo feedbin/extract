@@ -7,8 +7,7 @@ set :repo_url, "git@github.com:feedbin/#{fetch(:application)}.git"
 set :deploy_to, "/srv/apps/#{fetch(:application)}"
 set :log_level, :warn
 
-append :linked_dirs, "users", "node_modules"
-append :linked_files, "package-lock.checksum"
+append :linked_dirs, "users", "node_modules", "deploy"
 
 namespace :app do
 

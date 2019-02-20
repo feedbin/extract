@@ -3,14 +3,14 @@
 set -e
 
 sha=$(shasum package-lock.json)
-sha_file=package-lock.checksum
+sha_file="deploy/package-lock.checksum"
 
 run () {
-    echo "run"
-    # npm install --save --quiet
+    echo "Installing dependencies..."
+    npm install --save --quiet > /dev/null
 
     # Running twice fixes missing
-    # npm install --save --quiet
+    npm install --save --quiet > /dev/null
 
     echo "${sha}" > "${sha_file}"
 }
