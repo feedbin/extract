@@ -27,7 +27,12 @@ App.get("/parser/:user/:signature", (request, response, next) => {
         Mercury.parse(url).then(result => {
             response.status(("error" in result ? 500 : 200))
             response.send(result);
-        }).catch(next);
+        }).catch(function(error) {
+          console.log("----------");
+          console.log(`url: ${url}`);
+          console.log("----------");
+          next(error)
+        });
     }).catch(next);
 });
 
