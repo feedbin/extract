@@ -7,10 +7,9 @@ sha_file="deploy/package-lock.checksum"
 
 run () {
     echo "Installing dependencies..."
-    npm install --save --quiet > /dev/null
 
     # Running twice fixes missing
-    npm install --save --quiet > /dev/null
+    npm install && npm install
 
     echo "${sha}" > "${sha_file}"
 }

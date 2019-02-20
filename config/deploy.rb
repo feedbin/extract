@@ -42,7 +42,7 @@ namespace :app do
   task :bootstrap do
     on roles(:app) do
       within release_path do
-        # execute "script/bootstrap.sh"
+        execute "script/bootstrap.sh"
       end
     end
   end
