@@ -8,6 +8,7 @@ set :deploy_to, "/srv/apps/#{fetch(:application)}"
 set :log_level, :warn
 
 append :linked_dirs, "users", "node_modules"
+append :linked_files, "package-lock.checksum"
 
 namespace :app do
 
@@ -42,7 +43,7 @@ namespace :app do
   task :bootstrap do
     on roles(:app) do
       within release_path do
-        execute "script/bootstrap.sh"
+        # execute "script/bootstrap.sh"
       end
     end
   end
