@@ -3,6 +3,7 @@ module.exports = {
         name: "extract",
         script: "./app/app.js",
         instances: "max",
+        cwd: process.env.PWD,
         env: {
             NODE_ENV: "development",
         },
