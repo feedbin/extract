@@ -24,6 +24,9 @@ App.get("/health_check", (request, response) => {
 App.get("/parser/:user/:signature", (request, response, next) => {
     const {user, signature, url} = getParams(request);
     new Validator(user, url, signature).validate().then(result => {
+        console.log("----------");
+        console.log(`url: ${url}`);
+        console.log("----------");
         Mercury.parse(url).then(result => {
             response.status(("error" in result ? 500 : 200))
             response.send(result);
