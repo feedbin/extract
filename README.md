@@ -18,7 +18,7 @@ Mercury already offers an [API component](https://github.com/postlight/mercury-p
 
 Here's a graph where you can see a decrease in average response time around the `17. Feb` mark. This is when Feedbin switched from the lambda hosted version, to extract running on a VPS.
 
-![Response Time](https://user-images.githubusercontent.com/133809/52974385-2e73a880-3376-11e9-8523-820f74546d52.png)
+![Response Time](https://user-images.githubusercontent.com/133809/53254496-54e85b00-3678-11e9-949a-f61824a4ac96.png)
 
 Installation
 ------------
