@@ -13,7 +13,8 @@ function decodeURL(encodedURL) {
 function getParams(request) {
     const user = request.params.user;
     const signature = request.params.signature;
-    const url = decodeURL(request.query.base64_url);
+    const base64url = request.query.base64_url.replace(/ /g, '+');
+    const url = decodeURL(base64url)
     return {user, signature, url}
 }
 
@@ -34,11 +35,15 @@ App.get("/parser/:user/:signature", (request, response, next) => {
 const server = App.listen((process.env.PORT || 3000));
 
 process.on("SIGINT", () => {
-    server.close(function(error) {
-        console.error("SIGINT received, shutting down");
-        if (error) {
-            console.error(err);
-            process.exit(1);
-        }
-    })
+    if (process.env.NODE_ENV === "production") {
+        server.close(function(error) {
+            console.error("SIGINT received, shutting down");
+            if (error) {
+                console.error(err);
+                process.exit(1);
+            }
+        })
+    } else {
+        process.exit(0);
+    }
 })
