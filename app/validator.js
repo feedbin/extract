@@ -16,7 +16,7 @@ class Validator {
                     reject(`data required`);
                 }
                 if (this.calculateSignature(key) !== this.signature) {
-                    reject(`invalid signature. key: ${key} calculated: ${this.calculateSignature(key)} received: ${this.signature}`);
+                    reject(`invalid signature. key: ${key} calculated: ${this.calculateSignature(key)} received: ${this.signature} data: ${this.data}`);
                 }
                 resolve();
             }).catch(error => {
