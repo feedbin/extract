@@ -12,15 +12,12 @@ class Validator {
     validate() {
         return new Promise((resolve, reject) => {
             const key = this.key().then(key => {
-                if (!this.data) {
-                    reject(`data required`);
-                }
                 if (this.calculateSignature(key) !== this.signature) {
-                    reject(`invalid signature. key: ${key} calculated: ${this.calculateSignature(key)} received: ${this.signature} data: ${this.data}`);
+                    reject(`Invalid signature.`);
                 }
                 resolve();
             }).catch(error => {
-                reject(`user does not exist: ${this.user}`);
+                reject(`User does not exist: ${this.user}.`);
             });
         });
     }

@@ -4,9 +4,6 @@ const Mercury = require("@postlight/mercury-parser");
 const Validator = require("./validator");
 
 function decodeURL(encodedURL) {
-    if (!encodedURL) {
-        throw new Error("base64_url parameter required");
-    }
     return Buffer.from(encodedURL, "base64").toString("utf-8");
 }
 
@@ -14,7 +11,7 @@ function getParams(request) {
     const user = request.params.user;
     const signature = request.params.signature;
     const base64url = request.query.base64_url.replace(/ /g, '+');
-    const url = decodeURL(base64url)
+    const url = decodeURL(base64url);
     return {user, signature, url}
 }
 
@@ -23,13 +20,19 @@ App.get("/health_check", (request, response) => {
 });
 
 App.get("/parser/:user/:signature", (request, response, next) => {
-    const {user, signature, url} = getParams(request);
-    new Validator(user, url, signature).validate().then(result => {
-        Mercury.parse(url).then(result => {
-            response.status(("error" in result ? 500 : 200))
-            response.send(result);
-        }).catch(next);
-    }).catch(next);
+    try {
+        const {user, signature, url} = getParams(request);
+        new Validator(user, url, signature).validate().then(result => {
+            Mercury.parse(url).then(result => {
+                const code = ("error" in result ? 400 : 200);
+                response.status(code).send(result);
+            }).catch(next);
+        }).catch(function(error) {
+            response.status(400).json({ error: true, messages: error });
+        });
+    } catch {
+        response.status(400).json({ error: true, messages: "Invalid request. Missing user, signature or url." });
+    }
 });
 
 const server = App.listen((process.env.PORT || 3000));
