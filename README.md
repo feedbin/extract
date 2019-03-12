@@ -105,7 +105,7 @@ signature = OpenSSL::HMAC.hexdigest(digest, secret, url)
 base64_url = Base64.urlsafe_encode64(url).gsub("\n", "")
 
 URI::HTTPS.build({
-  host: "localhost",
+  host: host,
   port: port,
   path: "/parser/#{username}/#{signature}",
   query: "base64_url=#{base64_url}"
