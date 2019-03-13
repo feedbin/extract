@@ -17,7 +17,6 @@ blocks:
       prologue:
         commands:
           - checkout
-          - nvm use
           - node --version
           - npm --version
       jobs:
@@ -37,7 +36,6 @@ blocks:
       prologue:
         commands:
           - checkout
-          - nvm use
           - node --version
           - npm --version
       jobs:
