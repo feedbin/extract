@@ -24,6 +24,7 @@ blocks:
           commands:
             - cache restore extract-node-modules-$SEMAPHORE_GIT_BRANCH-$(checksum package-lock.json),extract-node-modules-$SEMAPHORE_GIT_BRANCH,extract-node-modules-master
             - npm install
+            - npm install
             - cache store extract-node-modules-$SEMAPHORE_GIT_BRANCH-$(checksum package-lock.json) node_modules
 
   - name: Tests
