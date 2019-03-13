@@ -31,7 +31,7 @@ app.get("/parser/:user/:signature", (request, response, next) => {
             response.status(400).json({ error: true, messages: error });
         });
     } catch {
-        response.status(400).json({ error: true, messages: "Invalid request. Missing user, signature or url." });
+        response.status(400).json({ error: true, messages: "Invalid request. Missing base64_url parameter." });
     }
 });
 
