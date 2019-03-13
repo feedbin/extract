@@ -1,6 +1,6 @@
-const HMAC = require("crypto-js/hmac-sha1");
-const FS = require("fs");
-const Path = require("path");
+const hmac = require("crypto-js/hmac-sha1");
+const fs = require("fs");
+const path = require("path");
 
 class Validator {
     constructor(user, data, signature) {
@@ -24,8 +24,8 @@ class Validator {
 
     key() {
         return new Promise((resolve, reject) => {
-            const filePath = Path.normalize(Path.join(__dirname, "..", "users", this.user));
-            FS.readFile(filePath, {encoding: "utf-8"}, (error, data) => {
+            const filepath = path.normalize(path.join(__dirname, "..", "users", this.user));
+            fs.readFile(filepath, {encoding: "utf-8"}, (error, data) => {
                 if (error) {
                     reject(error)
                 } else {
@@ -36,7 +36,8 @@ class Validator {
     }
 
     calculateSignature(key) {
-        return HMAC(this.data, key).toString();
+        return hmac(this.data, key).toString();
     }
 }
+
 module.exports = Validator;

@@ -41,7 +41,7 @@ Installation
 4. Run the server
 
     ```bash
-    node app/app.js
+    node app/server.js
     ```
 
     Alternatively, extract includes an `ecosystem.config.js` to use with [pm2](https://github.com/Unitech/pm2). You could use this in production.
