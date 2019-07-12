@@ -26,7 +26,9 @@ app.get("/parser/:user/:signature", (request, response, next) => {
             mercury.parse(url).then(result => {
                 const code = ("error" in result ? 400 : 200);
                 response.status(code).send(result);
-            }).catch(next);
+            }).catch(function(error) {
+              response.status(400).json({ error: true, messages: "Cannot extract this URL." });
+            });
         }).catch(function(error) {
             response.status(400).json({ error: true, messages: error });
         });
