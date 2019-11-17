@@ -9,4 +9,6 @@ gem "foreman"
 
 group :development do
   gem "capistrano"
+  gem "ed25519"
+  gem "bcrypt_pbkdf"
 end
