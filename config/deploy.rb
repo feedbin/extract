@@ -1,5 +1,3 @@
-lock "~> 3.11.0"
-
 set :branch, "master"
 
 set :application, "extract"
@@ -13,25 +11,25 @@ namespace :app do
 
   desc "Start processes"
   task :start do
-    on roles(:app) do |host|
+    on roles(:all) do |host|
       within release_path do
-        execute :sudo, :service, :extract, :restart
+        execute :sudo, :systemctl, :restart, :extract
       end
     end
   end
 
   desc "Restart processes"
   task :restart do
-    on roles(:app), in: :sequence, wait: 2 do |host|
+    on roles(:all), in: :sequence, wait: 2 do |host|
       within release_path do
-        execute :sudo, :service, :extract, :restart
+        execute :sudo, :systemctl, :restart, :extract
       end
     end
   end
 
   desc "Bootstrap app"
   task :bootstrap do
-    on roles(:app) do
+    on roles(:all) do
       within release_path do
         execute "script/bootstrap.sh"
       end
@@ -40,7 +38,7 @@ namespace :app do
 
   desc "Add user"
   task :add_user do
-    on roles(:app) do
+    on roles(:all) do
       within release_path do
         execute :echo, "#{ENV['password']} > users/#{ENV['user']}"
       end
