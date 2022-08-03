@@ -10,31 +10,53 @@ function decodeURL(encodedURL) {
 function getParams(request) {
     const user = request.params.user;
     const signature = request.params.signature;
-    const base64url = request.query.base64_url.replace(/ /g, '+');
+    const base64url = request.query.base64_url.replace(/ /g, "+");
     const url = decodeURL(base64url);
-    return {user, signature, url}
+    return { user, signature, url };
 }
 
 app.get("/health_check", (request, response) => {
+    console.log(`[${request.ip}] - ${request.method} ${request.url}`);
+
     response.send("200 OK");
 });
 
-app.get("/parser/:user/:signature", (request, response, next) => {
+app.get("/parser/:user/:signature", (request, response) => {
     try {
-        const {user, signature, url} = getParams(request);
-        new validator(user, url, signature).validate().then(result => {
-            mercury.parse(url).then(result => {
-                const code = ("error" in result ? 400 : 200);
-                response.status(code).send(result);
-            }).catch(function(error) {
-              response.status(400).json({ error: true, messages: "Cannot extract this URL." });
+        const { user, signature, url } = getParams(request);
+        new validator(user, url, signature)
+            .validate()
+            .then(() => {
+                mercury
+                    .parse(url)
+                    .then((result) => {
+                        const code = "error" in result ? 400 : 200;
+
+                        console.log(`[${request.ip}] - ${request.method} ${request.url}`);
+
+                        response.status(code).send(result);
+                    })
+                    .catch(function () {
+                        const errorMessage = "Cannot extract this URL.";
+                        console.log(`[${request.ip}] - ${request.method} ${request.url}: ${errorMessage}`);
+
+                        response.status(400).json({ error: true, messages: errorMessage });
+                    });
+            })
+            .catch(function (error) {
+                console.log(`[${request.ip}] - ${request.method} ${request.url}: ${error}`);
+
+                response.status(400).json({ error: true, messages: error });
             });
-        }).catch(function(error) {
-            response.status(400).json({ error: true, messages: error });
-        });
     } catch {
-        response.status(400).json({ error: true, messages: "Invalid request. Missing base64_url parameter." });
+        const errorMessage = "Invalid request. Missing base64_url parameter.";
+        console.log(`[${request.ip}] - ${request.method} ${request.url}: ${errorMessage}`);
+
+        response.status(400).json({
+            error: true,
+            messages: errorMessage
+        });
     }
 });
 
-module.exports = app
+module.exports = app;
