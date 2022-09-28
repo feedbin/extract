@@ -3,12 +3,12 @@ Extract
 
 Extract just the content from a web page.
 
-Extract is a wrapper to turn the [Mercury Parser](https://github.com/postlight/mercury-parser) into a web service.
+Extract is a wrapper to turn the [Mercury Parser](https://github.com/postlight/parser) into a web service.
 
 Why?
 ----
 
-Mercury already offers an [API component](https://github.com/postlight/mercury-parser-api), meant to be deployed to AWS Lambda. There are a few reasons why this exists as an alternative.
+Mercury already offers an [API component](https://github.com/postlight/parser-api), meant to be deployed to AWS Lambda. There are a few reasons why this exists as an alternative.
 
 1. Deploy elsewhere. Extract is a vanilla Node.js app, that is meant to run in a VM, and has no platform specific dependencies.
 

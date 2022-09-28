@@ -1,6 +1,6 @@
 const express = require("express");
 const app = express();
-const mercury = require("@postlight/mercury-parser");
+const parser = require("@postlight/parser");
 const validator = require("./validator");
 
 function decodeURL(encodedURL) {
@@ -27,7 +27,7 @@ app.get("/parser/:user/:signature", (request, response) => {
         new validator(user, url, signature)
             .validate()
             .then(() => {
-                mercury
+                parser
                     .parse(url)
                     .then((result) => {
                         const code = "error" in result ? 400 : 200;
