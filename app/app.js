@@ -1,6 +1,6 @@
 const express = require("express");
 const app = express();
-const mercury = require("@postlight/mercury-parser");
+const parser = require("@postlight/parser");
 const validator = require("./validator");
 
 function decodeURL(encodedURL) {
@@ -15,9 +15,16 @@ function getParams(request) {
     return { user, signature, url };
 }
 
-app.get("/health_check", (request, response) => {
-    console.log(`[${request.ip}] - ${request.method} ${request.url}`);
+function log(request, extra) {
+    let output = `[${request.ip}] - ${request.method} ${request.url}`
+    if (extra) {
+        output = `${output}: ${extra}`
+    }
+    console.log(output);
+}
 
+app.get("/health_check", (request, response) => {
+    log(request);
     response.send("200 OK");
 });
 
@@ -27,31 +34,26 @@ app.get("/parser/:user/:signature", (request, response) => {
         new validator(user, url, signature)
             .validate()
             .then(() => {
-                mercury
+                parser
                     .parse(url)
                     .then((result) => {
                         const code = "error" in result ? 400 : 200;
-
-                        console.log(`[${request.ip}] - ${request.method} ${request.url}`);
-
+                        log(request);
                         response.status(code).send(result);
                     })
                     .catch(function () {
                         const errorMessage = "Cannot extract this URL.";
-                        console.log(`[${request.ip}] - ${request.method} ${request.url}: ${errorMessage}`);
-
+                        log(request, errorMessage);
                         response.status(400).json({ error: true, messages: errorMessage });
                     });
-            })
-            .catch(function (error) {
-                console.log(`[${request.ip}] - ${request.method} ${request.url}: ${error}`);
-
-                response.status(400).json({ error: true, messages: error });
-            });
+        })
+        .catch(function (error) {
+            log(request, error);
+            response.status(400).json({ error: true, messages: error });
+        });
     } catch {
         const errorMessage = "Invalid request. Missing base64_url parameter.";
-        console.log(`[${request.ip}] - ${request.method} ${request.url}: ${errorMessage}`);
-
+        log(request, errorMessage);
         response.status(400).json({
             error: true,
             messages: errorMessage
