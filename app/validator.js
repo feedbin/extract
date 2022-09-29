@@ -1,30 +1,30 @@
-const hmac = require("crypto-js/hmac-sha1");
-const fs = require("fs");
-const path = require("path");
+const hmac = require("crypto-js/hmac-sha1")
+const fs = require("fs")
+const path = require("path")
 
 class Validator {
     constructor(user, data, signature) {
-        this.user = user;
-        this.data = data;
-        this.signature = signature;
+        this.user = user
+        this.data = data
+        this.signature = signature
     }
 
-    validate() {
-        return new Promise((resolve, reject) => {
-            const key = this.key().then(key => {
-                if (this.calculateSignature(key) !== this.signature) {
-                    reject(`Invalid signature.`);
-                }
-                resolve();
-            }).catch(error => {
-                reject(`User does not exist: ${this.user}.`);
-            });
-        });
+    async validate() {
+        let key
+        try {
+            key = await this.key()
+        } catch (e) {
+            throw Error(`User does not exist: ${this.user}.`)
+        }
+
+        if (this.calculateSignature(key) !== this.signature) {
+            throw Error(`Invalid signature.`)
+        }
     }
 
-    key() {
+    async key() {
         return new Promise((resolve, reject) => {
-            const filepath = path.normalize(path.join(__dirname, "..", "users", this.user));
+            const filepath = path.normalize(path.join(__dirname, "..", "users", this.user))
             fs.readFile(filepath, {encoding: "utf-8"}, (error, data) => {
                 if (error) {
                     reject(error)
@@ -36,8 +36,8 @@ class Validator {
     }
 
     calculateSignature(key) {
-        return hmac(this.data, key).toString();
+        return hmac(this.data, key).toString()
     }
 }
 
-module.exports = Validator;
+module.exports = Validator
