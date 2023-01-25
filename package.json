@@ -10,7 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@postlight/parser": "^2.2.2",
+    "@postlight/parser": "^2.2.3",
     "crypto-js": "^4.1.1",
     "express": "^4.18.1",
     "moment-timezone": "0.5.37"

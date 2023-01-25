@@ -1,0 +1,33 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    kgio (2.11.4)
+    mustermann (3.0.0)
+      ruby2_keywords (~> 0.0.1)
+    posix-spawn (0.3.15)
+    rack (2.2.4)
+    rack-protection (3.0.2)
+      rack
+    raindrops (0.20.0)
+    ruby2_keywords (0.0.5)
+    sinatra (3.0.2)
+      mustermann (~> 3.0)
+      rack (~> 2.2, >= 2.2.4)
+      rack-protection (= 3.0.2)
+      tilt (~> 2.0)
+    tilt (2.0.11)
+    unicorn (6.1.0)
+      kgio (~> 2.6)
+      raindrops (~> 0.7)
+
+PLATFORMS
+  arm64-darwin-21
+  arm64-darwin-22
+
+DEPENDENCIES
+  posix-spawn
+  sinatra
+  unicorn
+
+BUNDLED WITH
+   2.3.21
