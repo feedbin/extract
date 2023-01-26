@@ -34,6 +34,7 @@ GEM
     raindrops (0.20.0)
     rake (13.0.6)
     ruby2_keywords (0.0.5)
+    sd_notify (0.1.1)
     sinatra (3.0.5)
       mustermann (~> 3.0)
       rack (~> 2.2, >= 2.2.4)
@@ -54,6 +55,7 @@ DEPENDENCIES
   connection_pool
   http
   puma
+  sd_notify
   sinatra
   unicorn
 
