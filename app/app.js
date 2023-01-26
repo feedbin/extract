@@ -23,7 +23,7 @@ app.post("/parser", async (request, response, next) => {
         const result = await parser.parse(request.body.url, request.body.options)
         const end = new Date().getTime() - start
         const code = "error" in result ? 400 : 200
-        log(request, `parse_time=${end}`)
+        log(request, `parse_time=${end} url=${request.body.url}`)
         response.status(code).send(result)
     } catch (error) {
         log(request, error.message)
