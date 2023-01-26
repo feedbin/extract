@@ -4,6 +4,7 @@ require "sinatra"
 require "http"
 require "openssl"
 require "base64"
+require "connection_pool"
 
 
 $parser = ConnectionPool.new(size: 1, timeout: 5) {
