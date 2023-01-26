@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 require "sinatra"
+require "http"
 require "openssl"
-require "posix/spawn"
 require "base64"
 
 def signature_valid?(user, signature, data)
@@ -11,11 +11,31 @@ def signature_valid?(user, signature, data)
   signature == OpenSSL::HMAC.hexdigest("sha1", key, data)
 end
 
+def parse(json)
+  HTTP
+    .timeout(connect: 2, write: 2, read: 5)
+    .post(ENV["PARSER_URL"], json: json)
+end
+
 def halt_with_error(error)
   halt 400, {"Content-Type" => "application/json"}, {
     error: true,
     messages: error
   }.to_json
+end
+
+def download_with_http(url)
+  response = HTTP
+    .follow(max_hops: 5)
+    .timeout(connect: 4, write: 4, read: 5)
+    .get(url)
+  {
+    url: url,
+    options: {
+      html: response.to_s,
+      contentType: response.headers[:content_type]
+    }
+  }
 end
 
 get "/health_check" do
@@ -37,16 +57,14 @@ get "/parser/:user/:signature" do
     halt_with_error("User does not exist: #{params["user"]}.")
   end
 
-  result = POSIX::Spawn::Child.new("./node_modules/.bin/postlight-parser", url, timeout: 5)
-
-  if result.status.success?
-    content_type :json
-    result.out
-  else
-    raise
-  end
+  payload = download_with_http(url)
+  response = parse(payload)
+  halt_with_error("Cannot extract this URL.") unless response.status.ok?
+  headers("Content-Type" => response.headers[:content_type])
+  response.to_s
 rescue => exception
-  logger.error "Exception processing exception=#{exception} url=#{url} user=#{params["user"]}"
+  logger.error "Exception processing exception=#{exception} url=#{url} user=#{params["user"]} "
+  logger.error exception.backtrace.join("\n")
   halt_with_error("Cannot extract this URL.")
   raise exception
 end
