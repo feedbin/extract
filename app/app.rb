@@ -6,6 +6,7 @@ require "openssl"
 require "base64"
 require "connection_pool"
 
+set :protection, except: [:json_csrf]
 
 $parser = ConnectionPool.new(size: 1, timeout: 5) {
   HTTP.persistent(ENV["PARSER_URL"])
