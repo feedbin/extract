@@ -8,7 +8,7 @@ shared_directory = File.directory?(shared_directory) ? shared_directory : ENV["P
 pid               File.join(shared_directory, "tmp", "unicorn.pid")
 listen            File.join(shared_directory, "tmp", "unicorn.sock")
 logger            Logger.new($stdout)
-worker_processes  ENV.fetch("WEB_CONCURRENCY", Etc.nprocessors)
+worker_processes  ENV.fetch("WEB_CONCURRENCY", Etc.nprocessors).to_i
 
 before_fork do |server, worker|
   old_pid = "#{server.config[:pid]}.oldbin"
