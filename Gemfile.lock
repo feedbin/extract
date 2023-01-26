@@ -23,7 +23,10 @@ GEM
       rake (~> 13.0)
     mustermann (3.0.0)
       ruby2_keywords (~> 0.0.1)
+    nio4r (2.5.8)
     public_suffix (5.0.1)
+    puma (6.0.2)
+      nio4r (~> 2.0)
     rack (2.2.6.2)
     rack-protection (3.0.5)
       rack
@@ -48,6 +51,7 @@ PLATFORMS
 
 DEPENDENCIES
   http
+  puma
   sinatra
   unicorn
 

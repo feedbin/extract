@@ -5,6 +5,11 @@ require "http"
 require "openssl"
 require "base64"
 
+
+$parser = ConnectionPool.new(size: 1, timeout: 5) {
+  HTTP.persistent(ENV["PARSER_URL"])
+}
+
 def signature_valid?(user, signature, data)
   path = File.expand_path(File.join("..", "users", user), __dir__)
   key = File.read(path).strip
@@ -12,9 +17,11 @@ def signature_valid?(user, signature, data)
 end
 
 def parse(json)
-  HTTP
-    .timeout(connect: 2, write: 2, read: 5)
-    .post(ENV["PARSER_URL"], json: json)
+  $parser.with do |connection|
+    connection
+      .timeout(connect: 1, write: 5, read: 5)
+      .post("/parser", json: json)
+  end
 end
 
 def halt_with_error(error)
@@ -59,9 +66,10 @@ get "/parser/:user/:signature" do
 
   payload = download_with_http(url)
   response = parse(payload)
+  body = response.to_s
   halt_with_error("Cannot extract this URL.") unless response.status.ok?
   headers("Content-Type" => response.headers[:content_type])
-  response.to_s
+  body
 rescue => exception
   logger.error "Exception processing exception=#{exception} url=#{url} user=#{params["user"]} "
   logger.error exception.backtrace.join("\n")
