@@ -5,8 +5,6 @@ require "openssl"
 require "posix/spawn"
 require "base64"
 
-BROWSER = Ferrum::Browser.new(timeout: 10)
-
 def signature_valid?(user, signature, data)
   path = File.expand_path(File.join("..", "users", user), __dir__)
   key = File.read(path).strip
@@ -39,9 +37,14 @@ get "/parser/:user/:signature" do
     halt_with_error("User does not exist: #{params["user"]}.")
   end
 
-  result = POSIX::Spawn::Child.new("./node_modules/.bin/postlight-parser", url)
+  result = POSIX::Spawn::Child.new("./node_modules/.bin/postlight-parser", url, timeout: 5)
 
-  result.status
+  if result.status.success?
+    content_type :json
+    result.out
+  else
+    raise
+  end
 rescue => exception
   logger.error "Exception processing exception=#{exception} url=#{url} user=#{params["user"]}"
   halt_with_error("Cannot extract this URL.")
