@@ -37,6 +37,8 @@ def download_with_http(url)
   response = HTTP
     .follow(max_hops: 5)
     .timeout(connect: 4, write: 4, read: 5)
+    .headers({accept_encoding: "gzip, deflate"})
+    .use(:auto_inflate)
     .get(url)
   {
     url: url,
