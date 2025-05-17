@@ -1,9 +1,9 @@
-const express = require("express")
+import express from 'express';
 const app = express()
 const parser = require("@postlight/parser")
 const validator = require("./validator")
 
-function decodeURL(encodedURL) {
+function decodeURL(encodedURL: string) {
     return Buffer.from(encodedURL, "base64").toString("utf-8")
 }
 

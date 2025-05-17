@@ -17,8 +17,9 @@
   },
   "devDependencies": {
     "jest": "^29.1.1",
+    "mkdirp": "1.0.4",
     "superagent": "^4.1.0",
     "supertest": "^4.0.2",
-    "mkdirp": "1.0.4"
+    "typescript": "^5.8.3"
   }
 }
