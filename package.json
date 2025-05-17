@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "yarn jest"
+    "test": "npx jest"
   },
   "keywords": [],
   "author": "",

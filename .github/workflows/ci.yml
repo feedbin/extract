@@ -26,7 +26,7 @@ jobs:
               with:
                   registry-url: "https://npm.pkg.github.com"
                   node-version-file: ".tool-versions"
-                  
+
             - name: Install dependencies
               run: npm install
 
@@ -34,4 +34,4 @@ jobs:
               run: npm run build
 
             - name: Test
-              run: npm test
+              run: npm run test
