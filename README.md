@@ -1,12 +1,10 @@
-Extract
-=======
+# Extract
 
 Extract just the content from a web page.
 
 Extract is a wrapper to turn the [Mercury Parser](https://github.com/postlight/parser) into a web service.
 
-Why?
-----
+## Why?
 
 Mercury already offers an [API component](https://github.com/postlight/parser-api), meant to be deployed to AWS Lambda. There are a few reasons why this exists as an alternative.
 
@@ -20,39 +18,37 @@ Here's a graph where you can see a decrease in average response time around the 
 
 ![Response Time](https://user-images.githubusercontent.com/133809/53254496-54e85b00-3678-11e9-949a-f61824a4ac96.png)
 
-Installation
-------------
+## Installation
 
 1. Install [Node.js](https://nodejs.org/en/) and [npm](https://www.npmjs.com/).
 
 2. Clone extract
 
-    ```bash
-    git clone https://github.com/feedbin/extract.git
-    ```
+   ```bash
+   git clone https://github.com/feedbin/extract.git
+   ```
 
 3. Install the dependencies.
 
-    ```bash
-    cd extract
-    npm install
-    ```
+   ```bash
+   cd extract
+   npm install
+   ```
 
 4. Run the server
 
-    ```bash
-    node app/server.js
-    ```
+   ```bash
+   node app/server.js
+   ```
 
-    Alternatively, extract includes an `ecosystem.config.js` to use with [pm2](https://github.com/Unitech/pm2). You could use this in production.
+   Alternatively, extract includes an `ecosystem.config.js` to use with [pm2](https://github.com/Unitech/pm2). You could use this in production.
 
-    ```bash
-    npm install --global pm2
-    pm2 start ecosystem.config.js
-    ```
+   ```bash
+   npm install --global pm2
+   pm2 start ecosystem.config.js
+   ```
 
-Usage
------
+## Usage
 
 Extract has a simple, file-based system for creating users and secret keys. This allows users to be added/removed while the system is running. In the `./users` directory, the filename is the username and the contents is the secret key. To make a new user, run the following:
 
@@ -122,19 +118,19 @@ With the output:
 
 ```json
 {
-    "title": "Private by Default",
-    "author": null,
-    "date_published": "2018-09-11T00:00:00.000Z",
-    "dek": null,
-    "lead_image_url": "https://assets.feedbin.com/assets-site/blog/2018-09-11/embed-3f43088538ae5ed7e585c00013adc13a915fd35de31990b3081a085b963ed7dd.png",
-    "content": "<div>content</div>",
-    "next_page_url": null,
-    "url": "https://feedbin.com/blog/2018/09/11/private-by-default/",
-    "domain": "feedbin.com",
-    "excerpt": "September 11, 2018 by Ben Ubois I want Feedbin to be the opposite of Big Social. I think people should have the right not to be tracked on the Internet and Feedbin can help facilitate that. Since&hellip;",
-    "word_count": 787,
-    "direction": "ltr",
-    "total_pages": 1,
-    "rendered_pages": 1
+  "title": "Private by Default",
+  "author": null,
+  "date_published": "2018-09-11T00:00:00.000Z",
+  "dek": null,
+  "lead_image_url": "https://assets.feedbin.com/assets-site/blog/2018-09-11/embed-3f43088538ae5ed7e585c00013adc13a915fd35de31990b3081a085b963ed7dd.png",
+  "content": "<div>content</div>",
+  "next_page_url": null,
+  "url": "https://feedbin.com/blog/2018/09/11/private-by-default/",
+  "domain": "feedbin.com",
+  "excerpt": "September 11, 2018 by Ben Ubois I want Feedbin to be the opposite of Big Social. I think people should have the right not to be tracked on the Internet and Feedbin can help facilitate that. Since&hellip;",
+  "word_count": 787,
+  "direction": "ltr",
+  "total_pages": 1,
+  "rendered_pages": 1
 }
 ```

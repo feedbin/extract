@@ -3,35 +3,35 @@ name: CI
 on: [push, pull_request]
 
 jobs:
-    build:
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v4
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-            - name: Cache node modules
-              id: cache-npm
-              uses: actions/cache@v4
-              env:
-                  cache-name: cache-node-modules
-              with:
-                  path: ~/.npm
-                  key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
-                  restore-keys: |
-                      ${{ runner.os }}-build-${{ env.cache-name }}-
-                      ${{ runner.os }}-build-
-                      ${{ runner.os }}-
+      - name: Cache node modules
+        id: cache-npm
+        uses: actions/cache@v4
+        env:
+          cache-name: cache-node-modules
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
 
-            - name: Setup node
-              uses: actions/setup-node@v4
-              with:
-                  registry-url: "https://npm.pkg.github.com"
-                  node-version-file: ".tool-versions"
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          registry-url: "https://npm.pkg.github.com"
+          node-version-file: ".tool-versions"
 
-            - name: Install dependencies
-              run: make install
+      - name: Install dependencies
+        run: make install
 
-            - name: Build
-              run: make
+      - name: Build
+        run: make
 
-            - name: Test
-              run: npm run test
+      - name: Test
+        run: npm run test

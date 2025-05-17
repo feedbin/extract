@@ -8,10 +8,6 @@
     "skipLibCheck": true
   },
   "$schema": "https://json.schemastore.org/tsconfig",
-  "include": [
-    "./app/**/*.ts"
-  ],
-  "exclude": [
-    "node_modules"
-  ]
+  "include": ["./src/**/*.ts"],
+  "exclude": ["node_modules"]
 }
