@@ -3,21 +3,35 @@ name: CI
 on: [push, pull_request]
 
 jobs:
-  build:
+    build:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
 
-    runs-on: ubuntu-latest
+            - name: Cache node modules
+              id: cache-npm
+              uses: actions/cache@v4
+              env:
+                  cache-name: cache-node-modules
+              with:
+                  path: ~/.npm
+                  key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
+                  restore-keys: |
+                      ${{ runner.os }}-build-${{ env.cache-name }}-
+                      ${{ runner.os }}-build-
+                      ${{ runner.os }}-
 
-    strategy:
-      matrix:
-        node-version: [18.x]
+            - name: Setup node
+              uses: actions/setup-node@v4
+              with:
+                  registry-url: "https://npm.pkg.github.com"
+                  node-version-file: ".tool-versions"
+                  
+            - name: Install dependencies
+              run: npm install
 
-    steps:
-      - uses: actions/checkout@v3
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v3
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: 'npm'
-      - run: npm install
-      - run: npm run build --if-present
-      - run: npm test
+            - name: Build
+              run: npm run build
+
+            - name: Test
+              run: npm test
