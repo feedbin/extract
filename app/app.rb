@@ -6,23 +6,31 @@ require "openssl"
 require "base64"
 require "connection_pool"
 
-if ENV["RACK_ENV"] == "test"
-  set :protection, false
-else
-  set :protection, except: [:json_csrf]
-end
+set :protection, except: [:json_csrf]
 
 $parser = ConnectionPool.new(size: 1, timeout: 5) {
   HTTP.persistent(ENV["PARSER_URL"])
 }
 
-def signature_valid?(user, signature, data)
-  if ENV["RACK_ENV"] == "test"
-    path = File.join("users", user)
+$users = begin
+  if ENV["EXTRACT_USERS"]
+    File.readlines(ENV["EXTRACT_USERS"]).each_with_object({}) do |line, hash|
+      line = line.strip
+      next if line.empty?
+
+      username, password = line.split("=", 2)
+      hash[username] = password if username && password
+    end
   else
-    path = File.expand_path(File.join("..", "users", user), __dir__)
+    {"demo" => "demo"}
   end
-  key = File.read(path).strip
+end
+
+
+def signature_valid?(user, signature, data)
+  key = $users[user]
+  return false unless key
+
   signature == OpenSSL::HMAC.hexdigest("sha1", key, data)
 end
 
@@ -68,11 +76,8 @@ def download_with_http(url)
 end
 
 def authenticate(user, signature, url)
-  begin
-    halt_with_error("Invalid signature.") unless signature_valid?(user, signature, url)
-  rescue Errno::ENOENT
-    halt_with_error("User does not exist: #{user}.")
-  end
+  halt_with_error("User does not exist: #{user}.") unless $users.key?(user)
+  halt_with_error("Invalid signature.") unless signature_valid?(user, signature, url)
 end
 
 def response_error!(exception, url, user)
@@ -105,24 +110,20 @@ rescue => exception
 end
 
 post "/parser/:user/:signature" do
-  request.body.rewind
-  begin
-    json_body = JSON.parse(request.body.read)
+  json = begin
+    JSON.parse(request.body.read)
   rescue JSON::ParserError
     halt_with_error("Invalid JSON body.")
   end
 
-  url = json_body["url"]
-  body = json_body["body"]
+  halt_with_error("Missing url field in JSON body.") unless json["url"]
+  halt_with_error("Missing body field in JSON body.") unless json["body"]
 
-  halt_with_error("Missing url field in JSON body.") unless url
-  halt_with_error("Missing body field in JSON body.") unless body
+  logger.info "url=#{json["url"]}"
 
-  logger.info "url=#{url}"
+  authenticate(params["user"], params["signature"], json["url"])
 
-  authenticate(params["user"], params["signature"], url)
-
-  payload = parser_object(url: url, html: body, content_type: "text/html")
+  payload = parser_object(url: json["url"], html: json["body"], content_type: "text/html")
 
   parse_with_mercury(payload)
 rescue => exception
