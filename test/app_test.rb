@@ -62,4 +62,27 @@ class AppTest < Test
       end
     end
   end
+
+  def test_post_parser_with_valid_signature
+    user = "testuser"
+    url = "https://example.com"
+    key = "secret-key"
+    signature = OpenSSL::HMAC.hexdigest("sha1", key, url)
+    title = "The Title"
+    html_body = "<title>#{title}</title>"
+
+    Dir.mktmpdir do |dir|
+      users_dir = File.join(dir, "users")
+      Dir.mkdir(users_dir)
+      File.write(File.join(users_dir, user), key)
+
+      Dir.chdir(dir) do
+        post "/parser/#{user}/#{signature}", {url: url, body: html_body}.to_json, "CONTENT_TYPE" => "application/json"
+
+        assert_equal 200, last_response.status
+        assert_equal "application/json; charset=utf-8", last_response.content_type
+        assert_equal title, JSON.load(last_response.body).fetch("title")
+      end
+    end
+  end
 end

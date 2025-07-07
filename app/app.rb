@@ -26,11 +26,16 @@ def signature_valid?(user, signature, data)
   signature == OpenSSL::HMAC.hexdigest("sha1", key, data)
 end
 
-def parse(json)
+def parse_with_mercury(json)
   $parser.with do |connection|
-    connection
+    response = connection
       .timeout(connect: 1, write: 5, read: 5)
       .post("/parser", json: json)
+
+    body = response.to_s
+    halt_with_error("Cannot extract this URL.") unless response.status.ok?
+    headers("Content-Type" => response.headers[:content_type])
+    body
   end
 end
 
@@ -41,6 +46,16 @@ def halt_with_error(error)
   }.to_json
 end
 
+def parser_object(url:, html:, content_type:)
+  {
+    url: url,
+    options: {
+      html: html,
+      contentType: content_type
+    }
+  }
+end
+
 def download_with_http(url)
   response = HTTP
     .follow(max_hops: 5)
@@ -48,13 +63,23 @@ def download_with_http(url)
     .headers({accept_encoding: "gzip, deflate"})
     .use(:auto_inflate)
     .get(url)
-  {
-    url: url,
-    options: {
-      html: response.to_s,
-      contentType: response.headers[:content_type]
-    }
-  }
+
+  parser_object(url: url, html: response.to_s, content_type: response.headers[:content_type])
+end
+
+def authenticate(user, signature, url)
+  begin
+    halt_with_error("Invalid signature.") unless signature_valid?(user, signature, url)
+  rescue Errno::ENOENT
+    halt_with_error("User does not exist: #{user}.")
+  end
+end
+
+def response_error!(exception, url, user)
+  logger.error "Exception processing exception=#{exception} url=#{url} user=#{user} "
+  logger.error exception.backtrace.join("\n")
+  halt_with_error("Cannot extract this URL.")
+  raise exception
 end
 
 get "/health_check" do
@@ -70,21 +95,36 @@ get "/parser/:user/:signature" do
 
   logger.info "url=#{url}"
 
-  begin
-    halt_with_error("Invalid signature.") unless signature_valid?(params["user"], params["signature"], url)
-  rescue Errno::ENOENT
-    halt_with_error("User does not exist: #{params["user"]}.")
-  end
+  authenticate(params["user"], params["signature"], url)
 
   payload = download_with_http(url)
-  response = parse(payload)
-  body = response.to_s
-  halt_with_error("Cannot extract this URL.") unless response.status.ok?
-  headers("Content-Type" => response.headers[:content_type])
-  body
+
+  parse_with_mercury(payload)
 rescue => exception
-  logger.error "Exception processing exception=#{exception} url=#{url} user=#{params["user"]} "
-  logger.error exception.backtrace.join("\n")
-  halt_with_error("Cannot extract this URL.")
-  raise exception
+  response_error!(exception, url, params["user"])
+end
+
+post "/parser/:user/:signature" do
+  request.body.rewind
+  begin
+    json_body = JSON.parse(request.body.read)
+  rescue JSON::ParserError
+    halt_with_error("Invalid JSON body.")
+  end
+
+  url = json_body["url"]
+  body = json_body["body"]
+
+  halt_with_error("Missing url field in JSON body.") unless url
+  halt_with_error("Missing body field in JSON body.") unless body
+
+  logger.info "url=#{url}"
+
+  authenticate(params["user"], params["signature"], url)
+
+  payload = parser_object(url: url, html: body, content_type: "text/html")
+
+  parse_with_mercury(payload)
+rescue => exception
+  response_error!(exception, url, params["user"])
 end
