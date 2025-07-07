@@ -3,21 +3,29 @@ name: CI
 on: [push, pull_request]
 
 jobs:
-  build:
-
-    runs-on: ubuntu-latest
-
+  test:
     strategy:
+      fail-fast: false
       matrix:
-        node-version: [18.x]
+        os: [ubuntu-24.04]
+        ruby: [3.4.4]
+
+    runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v3
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v3
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: 'npm'
-      - run: npm install
-      - run: npm run build --if-present
-      - run: npm test
+    - uses: actions/checkout@v2
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 23
+        cache: "npm"
+    - run: npm ci
+
+    - name: Set up Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: ${{ matrix.ruby }}
+        bundler-cache: true
+
+    - name: Run tests
+      run: bundle exec rake
