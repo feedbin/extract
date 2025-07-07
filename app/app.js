@@ -1,4 +1,4 @@
-const parser  = require("@postlight/parser")
+const parser  = require("@jocmp/mercury-parser")
 const express = require("express")
 const app     = express()
 

@@ -55,7 +55,7 @@ end
 
 get "/parser/:user/:signature" do
   url = begin
-    Base64.decode64(params["base64_url"])
+    Base64.urlsafe_decode64(params["base64_url"])
   rescue NoMethodError
     halt_with_error("Invalid request. Missing base64_url parameter.")
   end
