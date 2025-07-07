@@ -11,4 +11,5 @@ gem "http"
 group :test do
   gem "minitest"
   gem "webmock"
+  gem "rack-test"
 end

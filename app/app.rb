@@ -6,14 +6,22 @@ require "openssl"
 require "base64"
 require "connection_pool"
 
-set :protection, except: [:json_csrf]
+if ENV["RACK_ENV"] == "test"
+  set :protection, false
+else
+  set :protection, except: [:json_csrf]
+end
 
 $parser = ConnectionPool.new(size: 1, timeout: 5) {
   HTTP.persistent(ENV["PARSER_URL"])
 }
 
 def signature_valid?(user, signature, data)
-  path = File.expand_path(File.join("..", "users", user), __dir__)
+  if ENV["RACK_ENV"] == "test"
+    path = File.join("users", user)
+  else
+    path = File.expand_path(File.join("..", "users", user), __dir__)
+  end
   key = File.read(path).strip
   signature == OpenSSL::HMAC.hexdigest("sha1", key, data)
 end
