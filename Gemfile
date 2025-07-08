@@ -7,3 +7,9 @@ gem "unicorn"
 gem "sinatra"
 gem "connection_pool"
 gem "http"
+
+group :test do
+  gem "minitest"
+  gem "webmock"
+  gem "rack-test"
+end
