@@ -1,4 +1,3 @@
-require "webmock/minitest"
 require_relative "test_helper"
 
 class AppTest < Test

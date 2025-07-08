@@ -1,9 +1,4 @@
-USERS = Tempfile.new
-USERS.write("user: key")
-USERS.close
-
 ENV["RACK_ENV"] = "test"
-ENV["EXTRACT_USERS"] = USERS.path
 
 require "minitest/autorun"
 require "webmock/minitest"
@@ -12,6 +7,13 @@ require "json"
 require "tmpdir"
 require "open3"
 require "net/http"
+require "tempfile"
+
+USERS = Tempfile.new
+USERS.write("user: key")
+USERS.close
+
+ENV["EXTRACT_USERS"] = USERS.path
 
 require_relative "test_server"
 require_relative "../app/app.rb"
