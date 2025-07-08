@@ -5,6 +5,7 @@ require "http"
 require "openssl"
 require "base64"
 require "connection_pool"
+require "yaml"
 
 set :protection, except: [:json_csrf]
 
@@ -14,13 +15,7 @@ $parser = ConnectionPool.new(size: 1, timeout: 5) {
 
 $users = begin
   if ENV["EXTRACT_USERS"]
-    File.readlines(ENV["EXTRACT_USERS"]).each_with_object({}) do |line, hash|
-      line = line.strip
-      next if line.empty?
-
-      username, password = line.split("=", 2)
-      hash[username] = password if username && password
-    end
+    YAML.safe_load_file(ENV["EXTRACT_USERS"])
   else
     {"demo" => "demo"}
   end

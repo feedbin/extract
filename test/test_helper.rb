@@ -1,5 +1,5 @@
 USERS = Tempfile.new
-USERS.write("user=key")
+USERS.write("user: key")
 USERS.close
 
 ENV["RACK_ENV"] = "test"
@@ -31,7 +31,7 @@ class Test < Minitest::Test
   include Rack::Test::Methods
 
   def setup
-    @user, @key = File.read(USERS).split("=", 2)
+    @user, @key = YAML.safe_load_file(USERS).first
   end
 
   def app

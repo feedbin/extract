@@ -61,7 +61,7 @@ cd extract
 mkdir users
 
 # use your own secret key and username
-echo "SECRET_KEY" > users/USERNAME
+echo "user: key" > users/users.yml
 ```
 
 Once a username and password has been created, you can make a request.
