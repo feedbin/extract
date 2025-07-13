@@ -49,12 +49,12 @@ def halt_with_error(error)
   }.to_json
 end
 
-def parser_object(url:, html:, content_type:)
+def parser_object(url:, html:)
   {
     url: url,
     options: {
       html: html,
-      contentType: content_type
+      contentType: "html"
     }
   }
 end
@@ -67,12 +67,20 @@ def download_with_http(url)
     .use(:auto_inflate)
     .get(url)
 
-  parser_object(url: url, html: response.to_s, content_type: response.headers[:content_type])
+  parser_object(url: url, html: response.to_s)
 end
 
-def authenticate(user, signature, url)
+def authenticate(user, signature)
+  url = begin
+    Base64.urlsafe_decode64(params["base64_url"])
+  rescue NoMethodError
+    halt_with_error("Invalid request. Missing base64_url parameter.")
+  end
+
   halt_with_error("User does not exist: #{user}.") unless $users.key?(user)
   halt_with_error("Invalid signature.") unless signature_valid?(user, signature, url)
+
+  url
 end
 
 def response_error!(exception, url, user)
@@ -87,39 +95,26 @@ get "/health_check" do
 end
 
 get "/parser/:user/:signature" do
-  url = begin
-    Base64.urlsafe_decode64(params["base64_url"])
-  rescue NoMethodError
-    halt_with_error("Invalid request. Missing base64_url parameter.")
-  end
-
+  url = authenticate(params["user"], params["signature"])
   logger.info "url=#{url}"
-
-  authenticate(params["user"], params["signature"], url)
-
   payload = download_with_http(url)
-
   parse_with_mercury(payload)
 rescue => exception
   response_error!(exception, url, params["user"])
 end
 
 post "/parser/:user/:signature" do
+  url = authenticate(params["user"], params["signature"])
+
   json = begin
     JSON.parse(request.body.read)
   rescue JSON::ParserError
     halt_with_error("Invalid JSON body.")
   end
 
-  halt_with_error("Missing url field in JSON body.") unless json["url"]
   halt_with_error("Missing body field in JSON body.") unless json["body"]
-
-  logger.info "url=#{json["url"]}"
-
-  authenticate(params["user"], params["signature"], json["url"])
-
-  payload = parser_object(url: json["url"], html: json["body"], content_type: "text/html")
-
+  logger.info "url=#{url}"
+  payload = parser_object(url: url, html: json["body"])
   parse_with_mercury(payload)
 rescue => exception
   response_error!(exception, url, params["user"])

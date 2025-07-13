@@ -42,13 +42,14 @@ class AppTest < Test
 
   def test_post_parser_with_valid_signature
     url = "https://example.com"
+    base64_url = Base64.urlsafe_encode64(url)
     signature = OpenSSL::HMAC.hexdigest("sha1", @key, url)
     title = "The Title"
     html_body = "<title>#{title}</title>"
 
-    post "/parser/#{@user}/#{signature}", {url: url, body: html_body}.to_json, "CONTENT_TYPE" => "application/json"
+    post "/parser/#{@user}/#{signature}?base64_url=#{base64_url}", {url: url, body: html_body}.to_json, "CONTENT_TYPE" => "application/json"
 
-    assert_equal "application/json; charset=utf-8", last_response.content_type
     assert_equal title, JSON.load(last_response.body).fetch("title")
+    assert_equal "application/json; charset=utf-8", last_response.content_type
   end
 end
