@@ -13,10 +13,7 @@ gem "sd_notify"
 gem "sinatra"
 gem "connection_pool"
 gem "http"
-
-group :development do
-  gem "irb"
-end
+gem "irb"
 
 group :test do
   gem "minitest"
