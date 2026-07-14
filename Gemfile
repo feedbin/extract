@@ -14,6 +14,10 @@ gem "sinatra"
 gem "connection_pool"
 gem "http"
 
+group :development do
+  gem "irb"
+end
+
 group :test do
   gem "minitest"
   gem "webmock"
