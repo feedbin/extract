@@ -1,8 +1,18 @@
+GIT
+  remote: https://github.com/feedbin/librato-metrics.git
+  revision: 8dbd988d8c7c10f8ff4652746760d53085f58b9b
+  branch: feedbin
+  specs:
+    librato-metrics (2.1.2)
+      aggregate (~> 0.2.2)
+      faraday
+
 GEM
   remote: https://rubygems.org/
   specs:
     addressable (2.9.0)
       public_suffix (>= 2.0.2, < 8.0)
+    aggregate (0.2.4)
     base64 (0.3.0)
     bigdecimal (4.1.2)
     connection_pool (3.0.2)
@@ -10,20 +20,38 @@ GEM
       bigdecimal
       rexml
     domain_name (0.6.20240107)
+    dotenv (3.2.0)
     drb (2.2.3)
+    faraday (2.14.3)
+      faraday-net_http (>= 2.0, < 3.5)
+      json
+      logger
+    faraday-net_http (3.4.4)
+      net-http (~> 0.5)
     hashdiff (1.2.1)
+    hetchy (1.0.0)
+    honeybadger (6.9.0)
+      logger
+      ostruct
     http (6.0.3)
       http-cookie (~> 1.0)
       llhttp (~> 0.6.1)
     http-cookie (1.1.6)
       domain_name (~> 0.5)
+    json (2.21.1)
+    librato-rack (2.0.5)
+      hetchy (~> 1.0)
+      librato-metrics (~> 2.1, >= 2.1.0)
     llhttp (0.6.2)
     logger (1.7.0)
     minitest (6.0.6)
       drb (~> 2.0)
       prism (~> 1.5)
     mustermann (3.1.1)
+    net-http (0.9.1)
+      uri (>= 0.11.1)
     nio4r (2.7.5)
+    ostruct (0.6.3)
     prism (1.9.0)
     public_suffix (7.0.5)
     puma (8.0.2)
@@ -49,6 +77,7 @@ GEM
       rack-session (>= 2.0.0, < 3)
       tilt (~> 2.0)
     tilt (2.8.0)
+    uri (1.1.1)
     webmock (3.26.2)
       addressable (>= 2.8.0)
       crack (>= 0.3.2)
@@ -61,7 +90,11 @@ PLATFORMS
 
 DEPENDENCIES
   connection_pool
+  dotenv
+  honeybadger
   http
+  librato-metrics!
+  librato-rack
   minitest
   puma
   rack-test

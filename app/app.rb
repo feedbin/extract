@@ -1,13 +1,19 @@
 # frozen_string_literal: true
 
+require "dotenv/load"
 require "sinatra"
 require "http"
 require "openssl"
 require "base64"
 require "connection_pool"
 require "yaml"
+require "librato-rack"
+require "honeybadger"
 
 set :protection, except: [:json_csrf]
+
+use Librato::Rack
+use Honeybadger::Rack::ErrorNotifier
 
 $parser = ConnectionPool.new(size: 1, timeout: 5) {
   HTTP.persistent(ENV["PARSER_URL"])
@@ -128,6 +134,10 @@ def response_error!(exception, url, user)
   logger.error "Exception processing exception=#{exception} url=#{url} user=#{user} "
   logger.error exception.backtrace.join("\n")
   halt_with_error("Cannot extract this URL.")
+end
+
+get "/env" do
+  ENV.inspect
 end
 
 get "/health_check" do
