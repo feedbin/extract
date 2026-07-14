@@ -136,10 +136,6 @@ def response_error!(exception, url, user)
   halt_with_error("Cannot extract this URL.")
 end
 
-get "/env" do
-  ENV.inspect
-end
-
 get "/health_check" do
   "OK"
 end
