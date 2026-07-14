@@ -17,7 +17,7 @@ class AppTest < Test
     stub_request(:get, url)
       .to_return(
         status: 200,
-        body: "<title>#{title}</title>",
+        body: "<html><head><title>#{title}</title></head><body><p>Some body text.</p></body></html>",
         headers: {"Content-Type" => "text/html"}
       )
 
@@ -45,7 +45,7 @@ class AppTest < Test
     base64_url = Base64.urlsafe_encode64(url)
     signature = OpenSSL::HMAC.hexdigest("sha1", @key, url)
     title = "The Title"
-    html_body = "<title>#{title}</title>"
+    html_body = "<html><head><title>#{title}</title></head><body><p>Some body text.</p></body></html>"
 
     post "/parser/#{@user}/#{signature}?base64_url=#{base64_url}", {url: url, body: html_body}.to_json, "CONTENT_TYPE" => "application/json"
 
@@ -93,7 +93,7 @@ class AppTest < Test
     stub_request(:get, url)
       .to_return(
         status: 200,
-        body: "<title>Caf\xE9</title>".b,
+        body: "<html><head><title>Caf\xE9</title></head><body><p>Some body text.</p></body></html>".b,
         headers: {"Content-Type" => "text/html; charset=windows-1252"}
       )
 
@@ -111,7 +111,7 @@ class AppTest < Test
     stub_request(:get, url)
       .to_return(
         status: 200,
-        body: "<title>Café “quoted”</title>".b,
+        body: "<html><head><title>Café “quoted”</title></head><body><p>Some body text.</p></body></html>".b,
         headers: {"Content-Type" => "text/html"}
       )
 
@@ -129,7 +129,7 @@ class AppTest < Test
     stub_request(:get, url)
       .to_return(
         status: 200,
-        body: "<title>Caf\xE9</title>".b,
+        body: "<html><head><title>Caf\xE9</title></head><body><p>Some body text.</p></body></html>".b,
         headers: {"Content-Type" => "text/html"}
       )
 
@@ -150,7 +150,7 @@ class AppTest < Test
     stub_request(:get, final_url)
       .to_return(
         status: 200,
-        body: "<title>Moved</title>",
+        body: "<html><head><title>Moved</title></head><body><p>Moved here.</p></body></html>",
         headers: {"Content-Type" => "text/html"}
       )
 

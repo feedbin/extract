@@ -16,7 +16,7 @@ class NodeAppTest < Test
 
       payload = {
         url: "https://example.com/",
-        options: {html: "<title>Still Alive</title>", contentType: "html"}
+        options: {html: "<html><head><title>Still Alive</title></head><body><p>Alive.</p></body></html>", contentType: "html"}
       }.to_json
       socket.write(http_request(uri.host, payload, "application/json"))
       status, body = read_http_response(socket)
