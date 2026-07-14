@@ -1,24 +1,11 @@
 {
   "name": "extract",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "yarn jest"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "description": "Extract just the content from a web page.",
+  "private": true,
+  "license": "MIT",
   "dependencies": {
-    "@jocmp/mercury-parser": "^2.4.6",
-    "crypto-js": "^4.2.0",
-    "express": "^5.1.0",
-    "moment-timezone": "0.6.0"
-  },
-  "devDependencies": {
-    "jest": "^30.0.4",
-    "superagent": "^10.2.1",
-    "supertest": "^7.1.1",
-    "mkdirp": "3.0.1"
+    "@jocmp/mercury-parser": "^3.0.9",
+    "express": "^5.1.0"
   }
 }

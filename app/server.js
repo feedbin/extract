@@ -4,16 +4,21 @@ const server = app.listen(serverPort, () => {
     console.log(`Extract started on port ${serverPort}`)
 })
 
-process.on("SIGINT", () => {
+function shutdown(signal) {
     if (process.env.NODE_ENV === "production") {
-        server.close(function (error) {
-            console.error("SIGINT received, shutting down")
+        console.log(`${signal} received, shutting down`)
+        server.close((error) => {
             if (error) {
-                console.error(err)
+                console.error(error)
                 process.exit(1)
             }
+            process.exit(0)
         })
+        server.closeIdleConnections()
     } else {
         process.exit(0)
     }
-})
+}
+
+process.on("SIGINT", () => shutdown("SIGINT"))
+process.on("SIGTERM", () => shutdown("SIGTERM"))

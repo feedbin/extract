@@ -17,7 +17,7 @@ app.get("/health_check", (request, response) => {
     response.send("200 OK")
 })
 
-app.post("/parser", async (request, response, next) => {
+app.post("/parser", async (request, response) => {
     try {
         const start = new Date().getTime()
         const result = await parser.parse(request.body.url, request.body.options)
@@ -31,7 +31,6 @@ app.post("/parser", async (request, response, next) => {
             error: true,
             messages: error.message
         })
-        next(error)
     }
 })
 

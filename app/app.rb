@@ -63,18 +63,59 @@ def download_with_http(url)
   response = HTTP
     .follow(max_hops: 5)
     .timeout(connect: 4, write: 4, read: 5)
-    .headers({accept_encoding: "gzip, deflate"})
+    .headers({accept_encoding: "gzip, deflate", user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"})
     .use(:auto_inflate)
     .get(url)
 
-  parser_object(url: url, html: response.to_s)
+  unless response.status.success?
+    halt_with_error("Cannot extract this URL. Origin returned HTTP #{response.status.code}.")
+  end
+
+  # Redirects can land on a different URL than requested. The parser needs the
+  # final one so relative links in the document resolve against the right base.
+  parser_object(url: response.uri.to_s, html: normalize_to_utf8(response.to_s, response.charset))
+end
+
+def find_encoding(name)
+  return unless name
+  Encoding.find(name)
+rescue ArgumentError
+  nil
+end
+
+# The charset of a page served without one in the Content-Type header is only
+# discoverable from the document itself, per the HTML spec via a <meta> tag in
+# the first 1024 bytes.
+def detect_meta_encoding(html)
+  head = html.byteslice(0, 2048)
+  return unless (match = head.match(/<meta[^>]+charset\s*=\s*["']?\s*([a-z0-9_\-]+)/i))
+  find_encoding(match[1])
+end
+
+# The parser payload is JSON, which can only carry valid UTF-8, so anything
+# else has to be transcoded before it goes on the wire.
+def normalize_to_utf8(html, declared_charset)
+  html = +html
+  if html.encoding == Encoding::BINARY
+    html.force_encoding(find_encoding(declared_charset) || detect_meta_encoding(html) || Encoding::UTF_8)
+  end
+
+  if html.encoding == Encoding::UTF_8
+    html.scrub
+  else
+    html.encode(Encoding::UTF_8, invalid: :replace, undef: :replace)
+  end
+rescue Encoding::ConverterNotFoundError
+  html.force_encoding(Encoding::UTF_8).scrub
 end
 
 def authenticate(user, signature)
+  halt_with_error("Invalid request. Missing base64_url parameter.") unless params["base64_url"]
+
   url = begin
     Base64.urlsafe_decode64(params["base64_url"])
-  rescue NoMethodError
-    halt_with_error("Invalid request. Missing base64_url parameter.")
+  rescue ArgumentError
+    halt_with_error("Invalid request. Invalid base64_url parameter.")
   end
 
   halt_with_error("User does not exist: #{user}.") unless $users.key?(user)
@@ -87,7 +128,6 @@ def response_error!(exception, url, user)
   logger.error "Exception processing exception=#{exception} url=#{url} user=#{user} "
   logger.error exception.backtrace.join("\n")
   halt_with_error("Cannot extract this URL.")
-  raise exception
 end
 
 get "/health_check" do
