@@ -556,8 +556,7 @@ jobs:
 Replace `README.md` with:
 
 ````markdown
-Extract
-=======
+# Extract
 
 Extract turns [Mercury Parser](https://github.com/postlight/parser) into an
 authenticated web service that can run on a VM without platform-specific
@@ -577,7 +576,17 @@ app/server.js    Node/Bun entry point and graceful shutdown
 Installation
 ------------
 
-Install Node.js 26, clone the repository, and install dependencies:
+Install Node.js 26 and Bun 1.3.14. Provision Bun at the system-owned path used
+by the production unit, then clone the repository and install dependencies:
+
+```bash
+test "$(bun --version)" = "1.3.14"
+sudo install -o root -g root -m 0755 "$(command -v bun)" /usr/local/bin/bun
+test "$(/usr/local/bin/bun --version)" = "1.3.14"
+```
+
+Copy the Bun executable rather than symlinking it into a user's home directory;
+the production service uses `ProtectHome=true`.
 
 ```bash
 git clone https://github.com/feedbin/extract.git
@@ -658,7 +667,8 @@ Production with systemd
 -----------------------
 
 `config/systemd/extract@.service` is a Bun-backed blue/green systemd template.
-It runs as `extract:extract` from:
+It requires Bun 1.3.14 at `/usr/local/bin/bun` before either service instance
+is enabled, and runs as `extract:extract` from:
 
 ```text
 /usr/local/srv/apps/extract/current

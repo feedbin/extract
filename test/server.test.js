@@ -72,13 +72,20 @@ async function waitForExit(child) {
     if (child.exitCode !== null) {
         return {code: child.exitCode, signal: child.signalCode}
     }
-    const [code, signal] = await Promise.race([
-        once(child, "exit"),
-        delay(5_000).then(() => {
-            throw new Error(`Server did not exit: ${child.output.stderr}`)
-        })
-    ])
-    return {code, signal}
+    let timeoutHandle
+    try {
+        const [code, signal] = await Promise.race([
+            once(child, "exit"),
+            new Promise((_, reject) => {
+                timeoutHandle = setTimeout(() => {
+                    reject(new Error(`Server did not exit: ${child.output.stderr}`))
+                }, 5_000)
+            })
+        ])
+        return {code, signal}
+    } finally {
+        clearTimeout(timeoutHandle)
+    }
 }
 
 function request(socketPath) {

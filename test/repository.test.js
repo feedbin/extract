@@ -61,5 +61,7 @@ test("README documents only the primary Node and Bun service", () => {
     assert.match(readme, /config\/systemd\/extract@\.service/)
     assert.match(readme, /extract@green\.service/)
     assert.match(readme, /\/run\/extract-green\/server\.sock/)
+    assert.match(readme, /Bun 1\.3\.14/)
+    assert.match(readme, /\/usr\/local\/bin\/bun/)
     assert.doesNotMatch(readme, /Ruby|Sinatra|Puma|Bundler|Foreman|PARSER_URL|standalone/i)
 })
