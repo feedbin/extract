@@ -27,13 +27,20 @@ function loadUsers() {
 
 const users = loadUsers()
 
-function log(request, extra) {
-    let output = `[${request.ip}] - ${request.method} ${request.url}`
+function log(request, response, extra) {
+    let output = `[${request.ip}] - ${request.method} ${request.url} status_code=${response.statusCode}`
     if (extra) {
         output = `${output}: ${extra}`
     }
     console.log(output)
 }
+
+// Log every request once its response is sent. Handlers add context
+// through response.locals.extra.
+app.use((request, response, next) => {
+    response.on("finish", () => log(request, response, response.locals.extra))
+    next()
+})
 
 // Buffer's base64url decoder is lenient, so validate the URL-safe alphabet,
 // padding, length, and canonical trailing bits before accepting input.
@@ -80,7 +87,6 @@ function authenticate(request, response) {
 }
 
 app.get("/health_check", (request, response) => {
-    log(request)
     response.send("OK")
 })
 
@@ -92,18 +98,17 @@ app.get("/parser/:user/:signature", async (request, response) => {
             return
         }
 
-        log(request, `url=${url}`)
         const start = Date.now()
         const result = await parser.parse(url)
         if (result && typeof result === "object" && "error" in result) {
-            log(request, `parse_error url=${url} message=${result.message}`)
+            response.locals.extra = `parse_error url=${url} message=${result.message}`
             return haltWithError(response, "Cannot extract this URL.")
         }
 
-        log(request, `parse_time=${Date.now() - start} url=${url}`)
+        response.locals.extra = `parse_time=${Date.now() - start} url=${url}`
         response.json(result)
     } catch (error) {
-        log(request, `exception=${error.message} url=${url}`)
+        response.locals.extra = `exception=${error.message} url=${url}`
         console.error(error.stack)
         if (!response.headersSent) {
             haltWithError(response, "Cannot extract this URL.")
