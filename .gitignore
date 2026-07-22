@@ -1,8 +1,6 @@
 users
 node_modules
-log
 package-lock.checksum
-vendor
 shared
 tmp
 .env
