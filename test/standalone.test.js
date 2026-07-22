@@ -17,17 +17,25 @@ const USER = "user"
 const KEY = "key"
 const ESCAPED_USER = "escaped"
 const ESCAPED_KEY = "key\nline"
+const FORMER_USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
 
 let appServer
 let appOrigin
 let fixtureServer
 let fixtureOrigin
+let fixtureUserAgent
 
 function page(title) {
     return `<html><head><title>${title}</title></head><body><p>Some body text.</p></body></html>`
 }
 
 function fixtureHandler(request, response) {
+    if (request.url === "/user-agent") {
+        fixtureUserAgent = request.headers["user-agent"]
+        response.writeHead(200, {"Content-Type": "text/html"})
+        response.end(page("User Agent"))
+        return
+    }
     if (request.url === "/article") {
         response.writeHead(200, {"Content-Type": "text/html"})
         response.end(page("The Title"))
@@ -125,7 +133,7 @@ test("GET parser authenticates a YAML-escaped secret", async () => {
 test("GET parser with invalid signature", async () => {
     const response = await getParser(`${fixtureOrigin}/article`, {signature: "invalid"})
     assert.equal(response.status, 400)
-    assert.equal(response.headers.get("content-type"), "application/json")
+    assert.equal(response.headers.get("content-type"), "application/json; charset=utf-8")
     const result = await response.json()
     assert.equal(result.messages, "Invalid signature.")
     assert.equal(result.error, true)
@@ -155,47 +163,28 @@ test("GET parser rejects invalid base64_url padding", async () => {
     assert.equal((await response.json()).messages, "Invalid request. Invalid base64_url parameter.")
 })
 
-function postParser(url, body, {user = USER, signature, contentType = "application/json"} = {}) {
-    const sig = signature ?? sign(url)
-    return fetch(`${appOrigin}/parser/${user}/${sig}?base64_url=${b64(url)}`, {
+test("POST parser route is unavailable", async () => {
+    const url = "https://example.com/supplied"
+    const response = await fetch(`${appOrigin}/parser/${USER}/${sign(url)}?base64_url=${b64(url)}`, {
         method: "POST",
-        headers: {"Content-Type": contentType},
-        body
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({url, body: page("Posted Title")})
     })
-}
 
-test("POST parser with valid signature", async () => {
-    const url = "https://example.com/supplied"
-    const response = await postParser(url, JSON.stringify({url, body: page("Posted Title")}))
-    assert.equal(response.status, 200)
-    assert.equal(response.headers.get("content-type"), "application/json; charset=utf-8")
-    assert.equal((await response.json()).title, "Posted Title")
-})
-
-test("POST parser with invalid JSON body", async () => {
-    const url = "https://example.com/supplied"
-    const response = await postParser(url, "not json", {contentType: "text/plain"})
-    assert.equal(response.status, 400)
-    assert.equal((await response.json()).messages, "Invalid JSON body.")
-})
-
-test("POST parser with missing body field", async () => {
-    const url = "https://example.com/supplied"
-    const response = await postParser(url, JSON.stringify({url}))
-    assert.equal(response.status, 400)
-    assert.equal((await response.json()).messages, "Missing body field in JSON body.")
-})
-
-test("POST parser authenticates before reading the body", async () => {
-    const url = "https://example.com/supplied"
-    const response = await postParser(url, "not json", {signature: "invalid"})
-    assert.equal(response.status, 400)
-    assert.equal((await response.json()).messages, "Invalid signature.")
+    assert.equal(response.status, 404)
 })
 
 // The tests below document how Mercury's built-in fetching compares to the
 // Ruby downloader in app.rb — the behavioral surface the standalone version
 // exists to measure.
+
+test("GET parser does not supply the former custom User-Agent", async () => {
+    fixtureUserAgent = undefined
+    const response = await getParser(`${fixtureOrigin}/user-agent`)
+
+    assert.equal(response.status, 200)
+    assert.notEqual(fixtureUserAgent, FORMER_USER_AGENT)
+})
 
 test("GET parser with meta charset page", async () => {
     const response = await getParser(`${fixtureOrigin}/meta-charset`)
