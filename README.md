@@ -18,17 +18,7 @@ app/server.js    Node/Bun entry point and graceful shutdown
 Installation
 ------------
 
-Install Node.js 26 and Bun 1.3.14. Provision Bun at the system-owned path used
-by the production unit, then clone the repository and install dependencies:
-
-```bash
-test "$(bun --version)" = "1.3.14"
-sudo install -o root -g root -m 0755 "$(command -v bun)" /usr/local/bin/bun
-test "$(/usr/local/bin/bun --version)" = "1.3.14"
-```
-
-Copy the Bun executable rather than symlinking it into a user's home directory;
-the production service uses `ProtectHome=true`.
+Install Node.js 26
 
 ```bash
 git clone https://github.com/feedbin/extract.git
@@ -42,17 +32,11 @@ Run the server in development:
 PORT=8889 node app/server.js
 ```
 
-Bun can run the same entry point:
-
-```bash
-PORT=8889 bun app/server.js
-```
 
 Run both compatibility suites with:
 
 ```bash
 npm test
-npm run test:bun
 ```
 
 Configuration
@@ -104,70 +88,3 @@ requestUrl.searchParams.set("base64_url", encodedUrl)
 
 console.log(requestUrl.toString())
 ```
-
-Production with systemd
------------------------
-
-`config/systemd/extract@.service` is a Bun-backed blue/green systemd template.
-It requires Bun 1.3.14 at `/usr/local/bin/bun` before either service instance
-is enabled, and runs as `extract:extract` from:
-
-```text
-/usr/local/srv/apps/extract/current
-```
-
-Install the service account and unit:
-
-```bash
-sudo useradd --system --home-dir /nonexistent --shell /usr/sbin/nologin extract
-sudo install -m 0644 config/systemd/extract@.service /etc/systemd/system/
-sudo install -d -o root -g extract -m 0750 /etc/extract
-sudo systemctl daemon-reload
-sudo systemd-analyze verify /etc/systemd/system/extract@.service
-```
-
-Copy `config/systemd/extract.env.example` to `/etc/extract/blue.env` and
-`/etc/extract/green.env`. Install the users file and protect all configuration:
-
-```bash
-sudo install -o root -g extract -m 0640 users.yml /etc/extract/users.yml
-sudo chown root:extract /etc/extract/blue.env /etc/extract/green.env
-sudo chmod 0640 /etc/extract/blue.env /etc/extract/green.env
-sudo systemctl enable extract@blue.service extract@green.service
-```
-
-Each color gets its own runtime directory and socket:
-
-```text
-/run/extract-blue/server.sock
-/run/extract-green/server.sock
-```
-
-The reverse proxy account must belong to the `extract` group to traverse these
-directories and connect to the sockets.
-
-Blue/green deployment
----------------------
-
-Place releases in versioned directories and atomically update `current`. Restart
-the traffic-inactive color, verify its socket, switch the external proxy, then
-stop the old color:
-
-```bash
-sudo ln -sfn /usr/local/srv/apps/extract/releases/2026-07-22-001 /usr/local/srv/apps/extract/current.next
-sudo mv -Tf /usr/local/srv/apps/extract/current.next /usr/local/srv/apps/extract/current
-
-sudo systemctl restart extract@green.service
-curl --fail --unix-socket /run/extract-green/server.sock http://localhost/health_check
-
-# Switch external traffic to the green socket, then retire blue.
-sudo systemctl stop extract@blue.service
-```
-
-Reverse the colors on the next deployment. Follow logs with:
-
-```bash
-sudo journalctl --follow --unit extract@green.service
-```
-
-Proxy configuration and traffic switching remain outside this repository.

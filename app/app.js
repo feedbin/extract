@@ -5,6 +5,10 @@ const parser = require("@jocmp/mercury-parser")
 const express = require("express")
 const app = express()
 
+// Production listens on a Unix socket, so the client IP is only available
+// from the reverse proxy's X-Forwarded-For header.
+app.set("trust proxy", true)
+
 function loadUsers() {
     if (!process.env.EXTRACT_USERS) {
         return {demo: "demo"}
@@ -24,7 +28,7 @@ function loadUsers() {
 const users = loadUsers()
 
 function log(request, extra) {
-    let output = `[${request.ip}] - ${request.method} ${request.url}`
+    let output = `[${request.ip ?? "-"}] - ${request.method} ${request.url}`
     if (extra) {
         output = `${output}: ${extra}`
     }
