@@ -31,6 +31,36 @@ function fixtureHandler(request, response) {
         response.end(page("The Title"))
         return
     }
+    if (request.url === "/meta-charset") {
+        response.writeHead(200, {"Content-Type": "text/html"})
+        response.end(Buffer.from("<html><head><meta charset=\"windows-1252\"><title>Caf\xE9</title></head><body><p>Some body text.</p></body></html>", "latin1"))
+        return
+    }
+    if (request.url === "/header-charset") {
+        response.writeHead(200, {"Content-Type": "text/html; charset=windows-1252"})
+        response.end(Buffer.from(page("Caf\xE9"), "latin1"))
+        return
+    }
+    if (request.url === "/undeclared-utf8") {
+        response.writeHead(200, {"Content-Type": "text/html"})
+        response.end(page("Café “quoted”"))
+        return
+    }
+    if (request.url === "/undeclared-binary") {
+        response.writeHead(200, {"Content-Type": "text/html"})
+        response.end(Buffer.from(page("Caf\xE9"), "latin1"))
+        return
+    }
+    if (request.url === "/redirect") {
+        response.writeHead(301, {"Location": `${fixtureOrigin}/article`})
+        response.end()
+        return
+    }
+    if (request.url === "/error-500") {
+        response.writeHead(500, {"Content-Type": "text/html"})
+        response.end(page("500 Internal Server Error"))
+        return
+    }
     response.writeHead(404, {"Content-Type": "text/html"})
     response.end(page("Not Found"))
 }
@@ -142,4 +172,50 @@ test("POST parser authenticates before reading the body", async () => {
     const response = await postParser(url, "not json", {signature: "invalid"})
     assert.equal(response.status, 400)
     assert.equal((await response.json()).messages, "Invalid signature.")
+})
+
+// The tests below document how Mercury's built-in fetching compares to the
+// Ruby downloader in app.rb — the behavioral surface the standalone version
+// exists to measure.
+
+test("GET parser with meta charset page", async () => {
+    const response = await getParser(`${fixtureOrigin}/meta-charset`)
+    assert.equal(response.status, 200)
+    assert.equal((await response.json()).title, "Café")
+})
+
+test("GET parser with header charset page", async () => {
+    const response = await getParser(`${fixtureOrigin}/header-charset`)
+    assert.equal(response.status, 200)
+    assert.equal((await response.json()).title, "Café")
+})
+
+test("GET parser with undeclared utf8 page", async () => {
+    const response = await getParser(`${fixtureOrigin}/undeclared-utf8`)
+    assert.equal(response.status, 200)
+    assert.equal((await response.json()).title, "Café “quoted”")
+})
+
+test("GET parser with undeclared binary page", async () => {
+    const response = await getParser(`${fixtureOrigin}/undeclared-binary`)
+    assert.equal(response.status, 200)
+    assert.equal((await response.json()).title, "Caf�")
+})
+
+test("GET parser follows redirects", async () => {
+    const response = await getParser(`${fixtureOrigin}/redirect`)
+    assert.equal(response.status, 200)
+    const result = await response.json()
+    assert.equal(result.title, "The Title")
+    // Drift from Ruby: the split stack reports the FINAL url after redirects;
+    // Mercury reports the requested one.
+    assert.equal(result.url, `${fixtureOrigin}/redirect`)
+})
+
+test("GET parser with origin error status", async () => {
+    const response = await getParser(`${fixtureOrigin}/error-500`)
+    assert.equal(response.status, 400)
+    // Drift from Ruby, which says "Cannot extract this URL. Origin returned
+    // HTTP 500." — Mercury swallows the status code.
+    assert.equal((await response.json()).messages, "Cannot extract this URL.")
 })
