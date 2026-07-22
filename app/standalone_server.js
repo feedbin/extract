@@ -1,7 +1,10 @@
 const app = require("./standalone")
-const serverPort = process.env.PORT || 8889
-const server = app.listen(serverPort, () => {
-    console.log(`Extract standalone started on port ${serverPort}`)
+const serverTarget = process.env.NODE_ENV === "production" ? process.env.SOCKET_PATH : process.env.PORT || 8889
+if (!serverTarget) {
+    throw new Error("SOCKET_PATH is required in production")
+}
+const server = app.listen(serverTarget, () => {
+    console.log(`Extract standalone started on ${serverTarget}`)
 })
 
 function shutdown(signal) {
