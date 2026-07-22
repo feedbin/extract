@@ -7,7 +7,8 @@ const fs = require("node:fs")
 const os = require("node:os")
 const path = require("node:path")
 
-const usersFile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "extract-test-")), "users.yml")
+const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "extract-test-"))
+const usersFile = path.join(temporaryDirectory, "users.yml")
 fs.writeFileSync(usersFile, "user: key\nescaped: \"key\\nline\"\n")
 process.env.EXTRACT_USERS = usersFile
 
@@ -87,8 +88,9 @@ before(async () => {
 })
 
 after(() => {
-    appServer.close()
-    fixtureServer.close()
+    appServer?.close()
+    fixtureServer?.close()
+    fs.rmSync(temporaryDirectory, {recursive: true, force: true})
 })
 
 function sign(url, key = KEY) {
@@ -145,6 +147,12 @@ test("GET parser with unknown user", async () => {
     assert.equal((await response.json()).messages, "User does not exist: ghost.")
 })
 
+test("GET parser rejects an inherited property name as an unknown user", async () => {
+    const response = await getParser(`${fixtureOrigin}/article`, {user: "toString"})
+    assert.equal(response.status, 400)
+    assert.equal((await response.json()).messages, "User does not exist: toString.")
+})
+
 test("GET parser with missing base64_url", async () => {
     const response = await fetch(`${appOrigin}/parser/${USER}/whatever`)
     assert.equal(response.status, 400)
@@ -161,6 +169,14 @@ test("GET parser rejects invalid base64_url padding", async () => {
     const response = await fetch(`${appOrigin}/parser/${USER}/whatever?base64_url=aA%3D`)
     assert.equal(response.status, 400)
     assert.equal((await response.json()).messages, "Invalid request. Invalid base64_url parameter.")
+})
+
+test("GET parser rejects noncanonical base64_url trailing bits", async () => {
+    for (const base64 of ["aB", "aB==", "Zm9", "Zm9="]) {
+        const response = await fetch(`${appOrigin}/parser/${USER}/whatever?base64_url=${encodeURIComponent(base64)}`)
+        assert.equal(response.status, 400, base64)
+        assert.equal((await response.json()).messages, "Invalid request. Invalid base64_url parameter.", base64)
+    }
 })
 
 test("POST parser route is unavailable", async () => {

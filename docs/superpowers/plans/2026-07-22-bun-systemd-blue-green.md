@@ -4,7 +4,7 @@
 
 **Goal:** Make Bun compatibility repeatable and add a hardened systemd template for blue/green standalone-server deployments through `/usr/local/srv/apps/extract/current`.
 
-**Architecture:** Node remains the primary development runtime, while a `test:bun` script runs the same Node-native tests under Bun. Development keeps its TCP port, while production requires a Unix socket. A systemd template uses its instance name as the deployment color, creates a private per-color runtime directory, and starts Bun from a shared atomic `current` symlink.
+**Architecture:** Node remains the primary development runtime, while a `test:bun` script runs the same Node-native tests under Bun. Development keeps its TCP port and demo user fallback, while the production entry point requires both `EXTRACT_USERS` and a Unix socket. A systemd template uses its instance name as the deployment color, creates a private per-color runtime directory, and starts Bun from a shared atomic `current` symlink.
 
 **Tech Stack:** Node 26, Bun 1.3+, Express 5, node:test, systemd.
 
@@ -17,6 +17,7 @@
 - The Bun production executable is `/usr/local/bin/bun`.
 - Load required per-color configuration from `/etc/extract/%i.env`.
 - Development listens on `PORT` (default `8889`); production requires `SOCKET_PATH`.
+- Production requires `EXTRACT_USERS`; only direct development use of `app/standalone.js` may use the `{demo: "demo"}` fallback.
 - Blue and green use `/run/extract-standalone-%i/standalone.sock`, created within a systemd-managed runtime directory.
 - Restrict the runtime directory and socket to `extract:extract`; the reverse proxy must have group access.
 - Keep reverse-proxy configuration and traffic switching outside this repository.
@@ -74,15 +75,16 @@ git commit -m "Add Bun compatibility test command"
 
 ---
 
-### Task 2: Production Unix-socket startup
+### Task 2: Production Unix-socket startup and users validation
 
 **Files:**
 - Create: `test/standalone_server.test.js`
 - Modify: `app/standalone_server.js`
+- Modify: `app/standalone.js`
 
 **Interfaces:**
-- Consumes: `NODE_ENV`, `SOCKET_PATH`, and the existing development `PORT` behavior.
-- Produces: a production server that listens on the requested Unix socket and removes it during graceful shutdown.
+- Consumes: `NODE_ENV`, `SOCKET_PATH`, `EXTRACT_USERS`, and the existing development `PORT` and demo-user behavior.
+- Produces: a production server that rejects missing or invalid user configuration before listening on the requested Unix socket and removes that socket during graceful shutdown.
 
 - [ ] **Step 1: Write failing production socket tests**
 
@@ -91,7 +93,9 @@ Create `test/standalone_server.test.js` with child-process tests that:
 - start the entry point with `NODE_ENV=production`, a temporary `SOCKET_PATH`, and a temporary `EXTRACT_USERS` file;
 - request `GET /health_check` through `http.get({socketPath, path})` and assert `200` with body `OK`;
 - send `SIGTERM`, assert a zero exit status, and assert the socket is removed;
-- start production without `SOCKET_PATH` and assert a non-zero exit with `SOCKET_PATH is required in production` on stderr.
+- start production without `SOCKET_PATH` and assert a non-zero exit with `SOCKET_PATH is required in production` on stderr;
+- start production without `EXTRACT_USERS` and assert it fails before loading the app with `EXTRACT_USERS is required in production` on stderr;
+- start production with null, array, empty-mapping, empty-secret, and non-string-secret YAML documents and assert each child fails at boot with a clear configuration error.
 
 - [ ] **Step 2: Run the focused tests and verify they fail**
 
@@ -101,15 +105,18 @@ Run:
 npm test -- --test-name-pattern='production standalone'
 ```
 
-Expected: the socket test fails because the entry point still listens on a TCP port, and the missing-path test fails because startup does not reject the absent setting.
+Expected: the startup tests fail because the entry point does not yet reject missing production users and the app does not validate configured users.
 
 - [ ] **Step 3: Implement the production listen target**
 
-In `app/standalone_server.js`, select `process.env.SOCKET_PATH` in production,
-throw a clear error when it is absent, and otherwise retain
-`process.env.PORT || 8889` for development. Pass the selected string or number
-directly to `app.listen()` and log the selected target without assuming it is a
-port.
+In `app/standalone_server.js`, require `EXTRACT_USERS` before importing the app
+when `NODE_ENV=production`, select `process.env.SOCKET_PATH` in production,
+and throw clear errors when either setting is absent. Otherwise retain
+`process.env.PORT || 8889` for development. In `app/standalone.js`, preserve
+the development `{demo: "demo"}` fallback and validate configured YAML as a
+non-array, non-null object with at least one own entry and only non-empty string
+secrets. Pass the selected string or number directly to `app.listen()` and log
+the selected target without assuming it is a port.
 
 - [ ] **Step 4: Run the focused tests and verify they pass**
 
@@ -119,13 +126,13 @@ Run:
 npm test -- --test-name-pattern='production standalone'
 ```
 
-Expected: both production startup tests pass.
+Expected: all production startup and users-configuration tests pass.
 
 - [ ] **Step 5: Commit the startup behavior**
 
 ```bash
-git add app/standalone_server.js test/standalone_server.test.js
-git commit -m "Listen on a Unix socket in production"
+git add app/standalone.js app/standalone_server.js test/standalone_server.test.js
+git commit -m "Require valid production users configuration"
 ```
 
 ---
@@ -348,9 +355,11 @@ EXTRACT_USERS=/etc/extract/users.yml
 EXTRACT_USERS=/etc/extract/users.yml
 ```
 
-Keep these files readable by the service account, then enable the instances:
+Install the users file and keep all configuration readable by the service
+account, then enable the instances:
 
 ```bash
+sudo install -o root -g extract -m 0640 users.yml /etc/extract/users.yml
 sudo chown root:extract /etc/extract/blue.env /etc/extract/green.env
 sudo chmod 0640 /etc/extract/blue.env /etc/extract/green.env
 sudo systemctl enable extract-standalone@blue.service
@@ -361,14 +370,16 @@ The reverse proxy account must be a member of the `extract` group so it can
 traverse the runtime directory and connect to the socket.
 
 For a deployment, install dependencies in a versioned release directory and
-atomically update `current`. Start the inactive color, verify its own socket,
-switch traffic in the external proxy or load balancer, and stop the old color:
+atomically update `current`. Restart the traffic-inactive color, verify its own
+socket, switch traffic in the external proxy or load balancer, and stop the old
+color. `restart` also starts an inactive unit when it is stopped and guarantees
+that it loads the new `current` release if it was already running:
 
 ```bash
 sudo ln -sfn /usr/local/srv/apps/extract/releases/RELEASE /usr/local/srv/apps/extract/current.next
 sudo mv -Tf /usr/local/srv/apps/extract/current.next /usr/local/srv/apps/extract/current
 
-sudo systemctl start extract-standalone@green.service
+sudo systemctl restart extract-standalone@green.service
 curl --fail --unix-socket /run/extract-standalone-green/standalone.sock http://localhost/health_check
 
 # Switch external traffic to the green socket, then retire blue.
@@ -398,8 +409,8 @@ bundle exec rake
 
 Expected:
 
-- 20 Node tests pass;
-- 20 Bun tests pass;
+- all Node tests pass;
+- all Bun tests pass;
 - 14 Ruby runs and 34 assertions pass with zero failures or errors.
 
 - [ ] **Step 3: Inspect the final diff**

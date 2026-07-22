@@ -1,3 +1,6 @@
+if (process.env.NODE_ENV === "production" && !process.env.EXTRACT_USERS) {
+    throw new Error("EXTRACT_USERS is required in production")
+}
 const app = require("./standalone")
 const serverTarget = process.env.NODE_ENV === "production" ? process.env.SOCKET_PATH : process.env.PORT || 8889
 if (!serverTarget) {

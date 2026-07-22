@@ -9,7 +9,16 @@ function loadUsers() {
     if (!process.env.EXTRACT_USERS) {
         return {demo: "demo"}
     }
-    return YAML.parse(fs.readFileSync(process.env.EXTRACT_USERS, "utf8"))
+    const users = YAML.parse(fs.readFileSync(process.env.EXTRACT_USERS, "utf8"))
+    const valid = users !== null &&
+        typeof users === "object" &&
+        !Array.isArray(users) &&
+        Object.keys(users).length > 0 &&
+        Object.values(users).every((secret) => typeof secret === "string" && secret.length > 0)
+    if (!valid) {
+        throw new Error("Invalid EXTRACT_USERS configuration: expected a non-empty mapping of usernames to non-empty string secrets")
+    }
+    return users
 }
 
 const users = loadUsers()
@@ -33,7 +42,12 @@ function urlsafeDecode64(input) {
     } else if (!/^[A-Za-z0-9_-]+$/.test(input) || input.length % 4 === 1) {
         return null
     }
-    return Buffer.from(input.replace(/=+$/, ""), "base64url")
+    const unpadded = input.replace(/=+$/, "")
+    const decoded = Buffer.from(unpadded, "base64url")
+    if (decoded.toString("base64url") !== unpadded) {
+        return null
+    }
+    return decoded
 }
 
 function haltWithError(response, message) {
@@ -52,7 +66,7 @@ function authenticate(request, response) {
         return haltWithError(response, "Invalid request. Invalid base64_url parameter.")
     }
     const user = request.params.user
-    if (!(user in users)) {
+    if (!Object.hasOwn(users, user)) {
         return haltWithError(response, `User does not exist: ${user}.`)
     }
     const key = users[user]

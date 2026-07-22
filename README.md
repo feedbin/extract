@@ -119,9 +119,11 @@ EXTRACT_USERS=/etc/extract/users.yml
 EXTRACT_USERS=/etc/extract/users.yml
 ```
 
-Keep these files readable by the service account, then enable the instances:
+Install the users file and keep all configuration readable by the service
+account, then enable the instances:
 
 ```bash
+sudo install -o root -g extract -m 0640 users.yml /etc/extract/users.yml
 sudo chown root:extract /etc/extract/blue.env /etc/extract/green.env
 sudo chmod 0640 /etc/extract/blue.env /etc/extract/green.env
 sudo systemctl enable extract-standalone@blue.service
@@ -132,14 +134,16 @@ The reverse proxy account must be a member of the `extract` group so it can
 traverse the runtime directory and connect to the socket.
 
 For a deployment, install dependencies in a versioned release directory and
-atomically update `current`. Start the inactive color, verify its own socket,
-switch traffic in the external proxy or load balancer, and stop the old color:
+atomically update `current`. Restart the traffic-inactive color, verify its own
+socket, switch traffic in the external proxy or load balancer, and stop the old
+color. `restart` also starts an inactive unit when it is stopped and guarantees
+that it loads the new `current` release if it was already running:
 
 ```bash
 sudo ln -sfn /usr/local/srv/apps/extract/releases/RELEASE /usr/local/srv/apps/extract/current.next
 sudo mv -Tf /usr/local/srv/apps/extract/current.next /usr/local/srv/apps/extract/current
 
-sudo systemctl start extract-standalone@green.service
+sudo systemctl restart extract-standalone@green.service
 curl --fail --unix-socket /run/extract-standalone-green/standalone.sock http://localhost/health_check
 
 # Switch external traffic to the green socket, then retire blue.

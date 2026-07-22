@@ -11,10 +11,9 @@ deployments.
 ## Bun compatibility
 
 Bun 1.3.14 runs the existing `node:test` standalone suite without application
-changes: 16 tests pass and no tests fail. The compatibility guarantee is for
-running the existing CommonJS application with dependencies installed in
-`node_modules`; changing the package manager or replacing `package-lock.json`
-is outside this work.
+changes. The compatibility guarantee is for running the existing CommonJS
+application with dependencies installed in `node_modules`; changing the
+package manager or replacing `package-lock.json` is outside this work.
 
 `package.json` gains this script so Bun compatibility remains repeatable:
 
@@ -67,13 +66,18 @@ The external reverse proxy user must therefore belong to that group.
 The repository includes `config/systemd/extract-standalone.env.example`;
 operators copy it to `/etc/extract/blue.env` and `/etc/extract/green.env`.
 Those environment files are deployment configuration and are not installed or
-modified automatically.
+modified automatically. Install `/etc/extract/users.yml` as `root:extract`
+with mode `0640` so the service can read it without exposing secrets to other
+users.
 
 ## Process lifecycle and hardening
 
 In development, `app/standalone_server.js` continues to use `PORT`, defaulting
-to `8889`. In production, `SOCKET_PATH` is required and the server fails fast
-when it is absent.
+to `8889`, and `app/standalone.js` retains the `demo` user fallback when
+`EXTRACT_USERS` is unset. In production, both `EXTRACT_USERS` and `SOCKET_PATH`
+are required. The entry point fails before loading the app when
+`EXTRACT_USERS` is absent, and configured users must be a non-empty YAML
+mapping whose secrets are non-empty strings.
 
 The service starts after `network-online.target` and restarts after failures
 with a short delay. systemd sends `SIGTERM`, allowing
@@ -96,15 +100,17 @@ remains available because Mercury Parser fetches remote pages.
 
 Application releases live in versioned directories outside the unit contract.
 Deployment atomically points `/usr/local/srv/apps/extract/current` at the new
-release, then starts the inactive color. systemd resolves `WorkingDirectory=`
-when that color starts; the already-running color retains its original working
-directory and loaded code.
+release, then restarts the traffic-inactive color. `systemctl restart` also
+starts that instance when it is stopped and guarantees that an already-running
+inactive instance loads the new `current` release. systemd resolves
+`WorkingDirectory=` when the restarted process starts; the active color retains
+its original working directory and loaded code.
 
 The operational sequence is:
 
 1. install the new release and its npm dependencies;
 2. atomically update the `current` symlink;
-3. start the inactive color;
+3. restart the traffic-inactive color;
 4. check `GET /health_check` through the inactive color's socket;
 5. switch traffic in the external proxy or load balancer;
 6. stop the previously active color.

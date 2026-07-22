@@ -17,15 +17,19 @@ function createTemporaryDirectory() {
     return directory
 }
 
-function startStandalone({socketPath} = {}) {
+function startStandalone({socketPath, usersYaml = "user: key\n", includeExtractUsers = true} = {}) {
     const directory = createTemporaryDirectory()
     const usersFile = path.join(directory, "users.yml")
-    fs.writeFileSync(usersFile, "user: key\n")
 
     const environment = {
         ...process.env,
-        NODE_ENV: "production",
-        EXTRACT_USERS: usersFile
+        NODE_ENV: "production"
+    }
+    if (includeExtractUsers) {
+        fs.writeFileSync(usersFile, usersYaml)
+        environment.EXTRACT_USERS = usersFile
+    } else {
+        delete environment.EXTRACT_USERS
     }
     if (socketPath) {
         environment.SOCKET_PATH = socketPath
@@ -131,4 +135,31 @@ test("production standalone requires SOCKET_PATH", async () => {
 
     assert.notEqual(exit.code, 0)
     assert.match(child.output.stderr, /SOCKET_PATH is required in production/)
+})
+
+test("production standalone requires EXTRACT_USERS before loading the app", async () => {
+    const child = startStandalone({includeExtractUsers: false})
+    const exit = await waitForExit(child)
+
+    assert.notEqual(exit.code, 0)
+    assert.match(child.output.stderr, /EXTRACT_USERS is required in production/)
+})
+
+test("production standalone rejects invalid users YAML at boot", async () => {
+    const invalidDocuments = [
+        ["null document", "null\n"],
+        ["array document", "- key\n"],
+        ["empty mapping", "{}\n"],
+        ["empty secret", "user: \"\"\n"],
+        ["non-string secret", "user: 123\n"]
+    ]
+
+    for (const [name, usersYaml] of invalidDocuments) {
+        const socketPath = path.join(createTemporaryDirectory(), "extract.sock")
+        const child = startStandalone({socketPath, usersYaml})
+        const exit = await waitForExit(child)
+
+        assert.notEqual(exit.code, 0, name)
+        assert.match(child.output.stderr, /Invalid EXTRACT_USERS configuration: expected a non-empty mapping of usernames to non-empty string secrets/, name)
+    }
 })
