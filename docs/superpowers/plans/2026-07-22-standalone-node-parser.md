@@ -18,7 +18,7 @@ Spec: `docs/superpowers/specs/2026-07-22-standalone-node-parser-design.md`
 - Exact Ruby error strings (see spec table). Check order: missing `base64_url` → invalid base64 → unknown user → invalid signature; for POST, body errors only after auth passes.
 - User-Agent for Mercury fetches must equal `app.rb`'s: `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36`
 - Shell commands: prepend `source ~/.bash_profile` (nvm PATH).
-- Run node tests with `npm test` (`node --test test/`); Ruby suite with `bundle exec rake`.
+- Run node tests with `npm test` (`node --test`); Ruby suite with `bundle exec rake`.
 
 ---
 
@@ -172,7 +172,7 @@ process.on("SIGTERM", () => shutdown("SIGTERM"))
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `source ~/.bash_profile && npm test`
-Expected: PASS (1 test). Verify `node --test test/` picks up only `standalone.test.js` and ignores the `.rb` files.
+Expected: PASS (1 test). Verify `node --test` picks up only `standalone.test.js` and ignores the `.rb` files.
 
 - [ ] **Step 5: Commit**
 
