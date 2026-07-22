@@ -13,7 +13,7 @@ const usersFile = path.join(temporaryDirectory, "users.yml")
 fs.writeFileSync(usersFile, "user: key\nescaped: \"key\\nline\"\n")
 process.env.EXTRACT_USERS = usersFile
 
-const app = require("../app/standalone")
+const app = require("../app/app")
 
 const USER = "user"
 const KEY = "key"
@@ -196,9 +196,8 @@ test("POST parser route is unavailable", async () => {
     assert.equal(response.status, 404)
 })
 
-// The tests below document how Mercury's built-in fetching compares to the
-// Ruby downloader in app.rb — the behavioral surface the standalone version
-// exists to measure.
+// These cases pin Mercury Parser's built-in fetch behavior for charsets,
+// redirects, upstream failures, and request headers.
 
 test("GET parser does not supply the former custom User-Agent", async () => {
     fixtureUserAgent = undefined
@@ -237,15 +236,13 @@ test("GET parser follows redirects", async () => {
     assert.equal(response.status, 200)
     const result = await response.json()
     assert.equal(result.title, "The Title")
-    // Drift from Ruby: the split stack reports the FINAL url after redirects;
-    // Mercury reports the requested one.
+    // Mercury reports the originally requested URL after following a redirect.
     assert.equal(result.url, `${fixtureOrigin}/redirect`)
 })
 
 test("GET parser with origin error status", async () => {
     const response = await getParser(`${fixtureOrigin}/error-500`)
     assert.equal(response.status, 400)
-    // Drift from Ruby, which says "Cannot extract this URL. Origin returned
-    // HTTP 500." — Mercury swallows the status code.
+    // Mercury normalizes upstream status failures to the public extraction error.
     assert.equal((await response.json()).messages, "Cannot extract this URL.")
 })

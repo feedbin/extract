@@ -12,12 +12,12 @@ const runningChildren = new Set()
 const temporaryDirectories = new Set()
 
 function createTemporaryDirectory() {
-    const directory = fs.mkdtempSync(path.join(os.tmpdir(), "extract-standalone-server-test-"))
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), "extract-server-test-"))
     temporaryDirectories.add(directory)
     return directory
 }
 
-function startStandalone({socketPath, usersYaml = "user: key\n", includeExtractUsers = true} = {}) {
+function startServer({socketPath, usersYaml = "user: key\n", includeExtractUsers = true} = {}) {
     const directory = createTemporaryDirectory()
     const usersFile = path.join(directory, "users.yml")
 
@@ -37,7 +37,7 @@ function startStandalone({socketPath, usersYaml = "user: key\n", includeExtractU
         delete environment.SOCKET_PATH
     }
 
-    const child = spawn(process.execPath, ["app/standalone_server.js"], {
+    const child = spawn(process.execPath, ["app/server.js"], {
         cwd: projectRoot,
         env: environment,
         stdio: ["ignore", "pipe", "pipe"]
@@ -61,11 +61,11 @@ async function waitForSocket(socketPath, child) {
             return
         }
         if (child.exitCode !== null) {
-            throw new Error(`Standalone server exited before listening with code ${child.exitCode}: ${child.output.stdout}${child.output.stderr}`)
+            throw new Error(`Server exited before listening with code ${child.exitCode}: ${child.output.stdout}${child.output.stderr}`)
         }
         await delay(25)
     }
-    throw new Error(`Standalone server did not create socket: ${child.output.stderr}`)
+    throw new Error(`Server did not create socket: ${child.output.stderr}`)
 }
 
 async function waitForExit(child) {
@@ -75,7 +75,7 @@ async function waitForExit(child) {
     const [code, signal] = await Promise.race([
         once(child, "exit"),
         delay(5_000).then(() => {
-            throw new Error(`Standalone server did not exit: ${child.output.stderr}`)
+            throw new Error(`Server did not exit: ${child.output.stderr}`)
         })
     ])
     return {code, signal}
@@ -113,9 +113,9 @@ afterEach(async () => {
     temporaryDirectories.clear()
 })
 
-test("production standalone serves health checks over its Unix socket", async () => {
+test("production server serves health checks over its Unix socket", async () => {
     const socketPath = path.join(createTemporaryDirectory(), "extract.sock")
-    const child = startStandalone({socketPath})
+    const child = startServer({socketPath})
 
     await waitForSocket(socketPath, child)
     const response = await request(socketPath)
@@ -129,23 +129,23 @@ test("production standalone serves health checks over its Unix socket", async ()
     assert.equal(fs.existsSync(socketPath), false)
 })
 
-test("production standalone requires SOCKET_PATH", async () => {
-    const child = startStandalone()
+test("production server requires SOCKET_PATH", async () => {
+    const child = startServer()
     const exit = await waitForExit(child)
 
     assert.notEqual(exit.code, 0)
     assert.match(child.output.stderr, /SOCKET_PATH is required in production/)
 })
 
-test("production standalone requires EXTRACT_USERS before loading the app", async () => {
-    const child = startStandalone({includeExtractUsers: false})
+test("production server requires EXTRACT_USERS before loading the app", async () => {
+    const child = startServer({includeExtractUsers: false})
     const exit = await waitForExit(child)
 
     assert.notEqual(exit.code, 0)
     assert.match(child.output.stderr, /EXTRACT_USERS is required in production/)
 })
 
-test("production standalone rejects invalid users YAML at boot", async () => {
+test("production server rejects invalid users YAML at boot", async () => {
     const invalidDocuments = [
         ["null document", "null\n"],
         ["array document", "- key\n"],
@@ -156,7 +156,7 @@ test("production standalone rejects invalid users YAML at boot", async () => {
 
     for (const [name, usersYaml] of invalidDocuments) {
         const socketPath = path.join(createTemporaryDirectory(), "extract.sock")
-        const child = startStandalone({socketPath, usersYaml})
+        const child = startServer({socketPath, usersYaml})
         const exit = await waitForExit(child)
 
         assert.notEqual(exit.code, 0, name)
