@@ -71,6 +71,91 @@ Installation
     PARSER_URL=http://127.0.0.1:3001 bundle exec puma --port 8888
     ```
 
+Bun and systemd
+---------------
+
+The standalone server can run under Bun. The Node and Bun compatibility suites
+exercise the same tests:
+
+```bash
+npm test
+npm run test:bun
+```
+
+`config/systemd/extract-standalone@.service` is a systemd template for
+blue/green deployment. It runs as `extract:extract`, starts Bun from
+`/usr/local/bin/bun`, and resolves the application through this symlink:
+
+```text
+/usr/local/srv/apps/extract/current
+```
+
+Create the service account and install the unit:
+
+```bash
+sudo useradd --system --home-dir /nonexistent --shell /usr/sbin/nologin extract
+sudo install -m 0644 config/systemd/extract-standalone@.service /etc/systemd/system/
+sudo install -d -o root -g extract -m 0750 /etc/extract
+sudo systemctl daemon-reload
+sudo systemd-analyze verify /etc/systemd/system/extract-standalone@.service
+```
+
+The template instance is the deployment color. Each instance gets a private
+runtime directory and Unix socket:
+
+```text
+/run/extract-standalone-blue/standalone.sock
+/run/extract-standalone-green/standalone.sock
+```
+
+Create one environment file per color using
+`config/systemd/extract-standalone.env.example` as a starting point:
+
+```text
+# /etc/extract/blue.env
+EXTRACT_USERS=/etc/extract/users.yml
+
+# /etc/extract/green.env
+EXTRACT_USERS=/etc/extract/users.yml
+```
+
+Keep these files readable by the service account, then enable the instances:
+
+```bash
+sudo chown root:extract /etc/extract/blue.env /etc/extract/green.env
+sudo chmod 0640 /etc/extract/blue.env /etc/extract/green.env
+sudo systemctl enable extract-standalone@blue.service
+sudo systemctl enable extract-standalone@green.service
+```
+
+The reverse proxy account must be a member of the `extract` group so it can
+traverse the runtime directory and connect to the socket.
+
+For a deployment, install dependencies in a versioned release directory and
+atomically update `current`. Start the inactive color, verify its own socket,
+switch traffic in the external proxy or load balancer, and stop the old color:
+
+```bash
+sudo ln -sfn /usr/local/srv/apps/extract/releases/RELEASE /usr/local/srv/apps/extract/current.next
+sudo mv -Tf /usr/local/srv/apps/extract/current.next /usr/local/srv/apps/extract/current
+
+sudo systemctl start extract-standalone@green.service
+curl --fail --unix-socket /run/extract-standalone-green/standalone.sock http://localhost/health_check
+
+# Switch external traffic to the green socket, then retire blue.
+sudo systemctl stop extract-standalone@blue.service
+```
+
+For the next deployment, reverse the colors. Follow either instance in the
+journal with:
+
+```bash
+sudo journalctl --follow --unit extract-standalone@green.service
+```
+
+The reverse proxy and its traffic-switching mechanism are intentionally not
+managed by this repository.
+
 Usage
 -----
 
