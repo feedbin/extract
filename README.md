@@ -176,7 +176,10 @@ Point the `EXTRACT_USERS` environment variable at this file when starting the we
 EXTRACT_USERS=users.yml PARSER_URL=http://127.0.0.1:3001 bundle exec puma --port 8888
 ```
 
-The file is read once at boot, so changes to it require a restart. If `EXTRACT_USERS` is not set, extract falls back to a single development user, username `demo` with the secret key `demo`. Do not rely on the default in production.
+The file is read once at boot, so changes to it require a restart. In
+development and the Ruby stack, an unset `EXTRACT_USERS` falls back to a single
+user named `demo` with the secret `demo`. The production standalone entry point
+requires `EXTRACT_USERS` and refuses to start without it.
 
 Once a username and secret key has been created, you can make a request.
 

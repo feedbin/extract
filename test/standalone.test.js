@@ -7,6 +7,7 @@ const fs = require("node:fs")
 const os = require("node:os")
 const path = require("node:path")
 
+const previousExtractUsers = process.env.EXTRACT_USERS
 const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "extract-test-"))
 const usersFile = path.join(temporaryDirectory, "users.yml")
 fs.writeFileSync(usersFile, "user: key\nescaped: \"key\\nline\"\n")
@@ -91,6 +92,11 @@ after(() => {
     appServer?.close()
     fixtureServer?.close()
     fs.rmSync(temporaryDirectory, {recursive: true, force: true})
+    if (previousExtractUsers === undefined) {
+        delete process.env.EXTRACT_USERS
+    } else {
+        process.env.EXTRACT_USERS = previousExtractUsers
+    }
 })
 
 function sign(url, key = KEY) {
