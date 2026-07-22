@@ -105,3 +105,41 @@ test("GET parser with invalid base64_url", async () => {
     assert.equal(response.status, 400)
     assert.equal((await response.json()).messages, "Invalid request. Invalid base64_url parameter.")
 })
+
+function postParser(url, body, {user = USER, signature, contentType = "application/json"} = {}) {
+    const sig = signature ?? sign(url)
+    return fetch(`${appOrigin}/parser/${user}/${sig}?base64_url=${b64(url)}`, {
+        method: "POST",
+        headers: {"Content-Type": contentType},
+        body
+    })
+}
+
+test("POST parser with valid signature", async () => {
+    const url = "https://example.com/supplied"
+    const response = await postParser(url, JSON.stringify({url, body: page("Posted Title")}))
+    assert.equal(response.status, 200)
+    assert.equal(response.headers.get("content-type"), "application/json; charset=utf-8")
+    assert.equal((await response.json()).title, "Posted Title")
+})
+
+test("POST parser with invalid JSON body", async () => {
+    const url = "https://example.com/supplied"
+    const response = await postParser(url, "not json", {contentType: "text/plain"})
+    assert.equal(response.status, 400)
+    assert.equal((await response.json()).messages, "Invalid JSON body.")
+})
+
+test("POST parser with missing body field", async () => {
+    const url = "https://example.com/supplied"
+    const response = await postParser(url, JSON.stringify({url}))
+    assert.equal(response.status, 400)
+    assert.equal((await response.json()).messages, "Missing body field in JSON body.")
+})
+
+test("POST parser authenticates before reading the body", async () => {
+    const url = "https://example.com/supplied"
+    const response = await postParser(url, "not json", {signature: "invalid"})
+    assert.equal(response.status, 400)
+    assert.equal((await response.json()).messages, "Invalid signature.")
+})

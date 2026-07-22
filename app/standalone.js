@@ -41,6 +41,10 @@ function log(request, extra) {
 
 const USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
 
+// Raw body + manual JSON.parse mirrors app.rb, which reads the body itself
+// regardless of content type, and only after authentication.
+app.use(express.raw({type: () => true, limit: "10mb"}))
+
 // Matches Ruby's Base64.urlsafe_decode64, which is strict: characters outside
 // the url-safe alphabet, stray padding, or an impossible length raise instead
 // of decoding loosely the way Buffer.from(..., "base64url") does.
@@ -125,6 +129,35 @@ app.get("/parser/:user/:signature", async (request, response) => {
         }
         log(request, `url=${url}`)
         await parse(request, response, url, {headers: {"User-Agent": USER_AGENT}})
+    } catch (error) {
+        responseError(request, response, error, url)
+    }
+})
+
+app.post("/parser/:user/:signature", async (request, response) => {
+    let url = null
+    try {
+        url = authenticate(request, response)
+        if (url === null) {
+            return
+        }
+
+        let json
+        try {
+            json = JSON.parse(request.body)
+        } catch {
+            return haltWithError(response, "Invalid JSON body.")
+        }
+
+        // Ruby's `unless json["body"]` only rejects nil/false — an empty
+        // string is accepted — so an explicit check replaces JS falsiness.
+        const html = (json && typeof json === "object") ? json.body : undefined
+        if (html === undefined || html === null || html === false) {
+            return haltWithError(response, "Missing body field in JSON body.")
+        }
+
+        log(request, `url=${url}`)
+        await parse(request, response, url, {html, contentType: "html"})
     } catch (error) {
         responseError(request, response, error, url)
     }
