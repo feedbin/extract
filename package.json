@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@jocmp/mercury-parser": "^3.0.9",
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "yaml": "^2.9.0"
   }
 }

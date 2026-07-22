@@ -8,13 +8,15 @@ const os = require("node:os")
 const path = require("node:path")
 
 const usersFile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "extract-test-")), "users.yml")
-fs.writeFileSync(usersFile, "user: key\n")
+fs.writeFileSync(usersFile, "user: key\nescaped: \"key\\nline\"\n")
 process.env.EXTRACT_USERS = usersFile
 
 const app = require("../app/standalone")
 
 const USER = "user"
 const KEY = "key"
+const ESCAPED_USER = "escaped"
+const ESCAPED_KEY = "key\nline"
 
 let appServer
 let appOrigin
@@ -109,6 +111,17 @@ test("GET parser with valid signature", async () => {
     assert.equal(result.title, "The Title")
 })
 
+test("GET parser authenticates a YAML-escaped secret", async () => {
+    const url = `${fixtureOrigin}/article`
+    const response = await getParser(url, {
+        user: ESCAPED_USER,
+        signature: sign(url, ESCAPED_KEY)
+    })
+
+    assert.equal(response.status, 200)
+    assert.equal((await response.json()).title, "The Title")
+})
+
 test("GET parser with invalid signature", async () => {
     const response = await getParser(`${fixtureOrigin}/article`, {signature: "invalid"})
     assert.equal(response.status, 400)
@@ -132,6 +145,12 @@ test("GET parser with missing base64_url", async () => {
 
 test("GET parser with invalid base64_url", async () => {
     const response = await fetch(`${appOrigin}/parser/${USER}/whatever?base64_url=%25%25`)
+    assert.equal(response.status, 400)
+    assert.equal((await response.json()).messages, "Invalid request. Invalid base64_url parameter.")
+})
+
+test("GET parser rejects invalid base64_url padding", async () => {
+    const response = await fetch(`${appOrigin}/parser/${USER}/whatever?base64_url=aA%3D`)
     assert.equal(response.status, 400)
     assert.equal((await response.json()).messages, "Invalid request. Invalid base64_url parameter.")
 })
