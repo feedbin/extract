@@ -28,6 +28,17 @@ Extract is two processes, defined in the `Procfile`:
 - **web**: a Ruby ([Sinatra](https://sinatrarb.com)) app that authenticates requests and downloads the requested page.
 - **parser**: a Node.js service that wraps Mercury Parser. The web process sends it downloaded pages over HTTP, using the address in the `PARSER_URL` environment variable.
 
+There is also an experimental standalone version that performs authentication
+and parsing in a single Node.js process, using Mercury Parser's built-in
+ability to fetch pages:
+
+- **standalone**: `PORT=8889 node app/standalone_server.js`
+
+It uses the same `EXTRACT_USERS` auth as the web process and runs alongside it
+on its own port, so the two implementations can be compared on identical
+requests, e.g. `http://localhost:8888/parser/...` vs
+`http://localhost:8889/parser/...`.
+
 Installation
 ------------
 
