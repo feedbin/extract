@@ -28,7 +28,7 @@ function loadUsers() {
 const users = loadUsers()
 
 function log(request, extra) {
-    let output = `[${request.ip ?? "-"}] - ${request.method} ${request.url}`
+    let output = `[${request.ip}] - ${request.method} ${request.url}`
     if (extra) {
         output = `${output}: ${extra}`
     }
