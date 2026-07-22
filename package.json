@@ -5,7 +5,8 @@
   "private": true,
   "license": "MIT",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "test:bun": "bun test test/"
   },
   "dependencies": {
     "@jocmp/mercury-parser": "^3.0.9",
