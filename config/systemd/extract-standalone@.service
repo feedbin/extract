@@ -1,0 +1,31 @@
+[Unit]
+Description=Extract standalone server (%i)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=extract
+Group=extract
+WorkingDirectory=/usr/local/srv/apps/extract/current
+Environment=NODE_ENV=production
+Environment=SOCKET_PATH=/run/extract-standalone-%i/standalone.sock
+EnvironmentFile=/etc/extract/%i.env
+RuntimeDirectory=extract-standalone-%i
+RuntimeDirectoryMode=0750
+UMask=0007
+ExecStart=/usr/local/bin/bun app/standalone_server.js
+Restart=on-failure
+RestartSec=5s
+KillSignal=SIGTERM
+TimeoutStopSec=30s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=extract-standalone-%i
+
+[Install]
+WantedBy=multi-user.target
