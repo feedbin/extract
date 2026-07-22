@@ -10,7 +10,7 @@ strict URL-safe Base64 authentication behavior.
 
 ## Runtime and dependencies
 
-- Keep Node 24 as selected by `.nvmrc`.
+- Upgrade `.nvmrc` from Node 24 to Node 26.
 - Add the `yaml` npm package as a production dependency.
 - Continue reading `EXTRACT_USERS` once when `app/standalone.js` is required.
 - Parse the users file with `YAML.parse(fs.readFileSync(path, "utf8"))` and
@@ -33,9 +33,11 @@ They use the dependency's default request headers.
 
 ## Authentication and errors
 
-The existing `urlsafeDecode64()` implementation remains unchanged. Node 24's
+The existing `urlsafeDecode64()` implementation remains unchanged. Node's
 standard `Buffer.from(value, "base64url")` decoder is deliberately lenient and
-does not preserve the current invalid-Base64 error contract.
+does not preserve the current invalid-Base64 error contract. Although Node 26
+also provides `Uint8Array.fromBase64()`, keeping the existing validator avoids
+changing accepted padding, whitespace, or trailing-bit behavior.
 
 Authentication continues in this order:
 
@@ -71,5 +73,5 @@ Use `node:test` and follow red-green-refactor:
 - Update error content-type expectations for `response.json()`.
 - Retain malformed URL-safe Base64 tests, including bad characters and bad
   padding, so strict decoding cannot be accidentally relaxed.
-- Run both `npm test` and `bundle exec rake`; the Ruby application remains
-  untouched.
+- Run the Node suite under Node 26, then run `bundle exec rake`; the Ruby
+  application remains untouched.
