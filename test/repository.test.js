@@ -42,3 +42,24 @@ test("repository excludes retired Ruby and comparison artifacts", () => {
         )
     }
 })
+
+test("CI runs the Node and Bun suites without Ruby", () => {
+    const workflow = fs.readFileSync(path.join(projectRoot, ".github/workflows/ci.yml"), "utf8")
+
+    assert.match(workflow, /actions\/setup-node@v7/)
+    assert.match(workflow, /npm ci/)
+    assert.match(workflow, /npm test/)
+    assert.match(workflow, /oven-sh\/setup-bun@v2/)
+    assert.match(workflow, /npm run test:bun/)
+    assert.doesNotMatch(workflow, /ruby|bundler|bundle exec|rake/i)
+})
+
+test("README documents only the primary Node and Bun service", () => {
+    const readme = fs.readFileSync(path.join(projectRoot, "README.md"), "utf8")
+
+    assert.match(readme, /node app\/server\.js/)
+    assert.match(readme, /config\/systemd\/extract@\.service/)
+    assert.match(readme, /extract@green\.service/)
+    assert.match(readme, /\/run\/extract-green\/server\.sock/)
+    assert.doesNotMatch(readme, /Ruby|Sinatra|Puma|Bundler|Foreman|PARSER_URL|standalone/i)
+})
