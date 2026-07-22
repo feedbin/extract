@@ -1,5 +1,5 @@
 [Unit]
-Description=Extract standalone server (%i)
+Description=Extract server (%i)
 Wants=network-online.target
 After=network-online.target
 
@@ -9,12 +9,12 @@ User=extract
 Group=extract
 WorkingDirectory=/usr/local/srv/apps/extract/current
 Environment=NODE_ENV=production
-Environment=SOCKET_PATH=/run/extract-standalone-%i/standalone.sock
+Environment=SOCKET_PATH=/run/extract-%i/server.sock
 EnvironmentFile=/etc/extract/%i.env
-RuntimeDirectory=extract-standalone-%i
+RuntimeDirectory=extract-%i
 RuntimeDirectoryMode=0750
 UMask=0007
-ExecStart=/usr/local/bin/bun app/standalone_server.js
+ExecStart=/usr/local/bin/bun app/server.js
 Restart=on-failure
 RestartSec=5s
 KillSignal=SIGTERM
@@ -25,7 +25,7 @@ ProtectSystem=strict
 ProtectHome=true
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=extract-standalone-%i
+SyslogIdentifier=extract-%i
 
 [Install]
 WantedBy=multi-user.target

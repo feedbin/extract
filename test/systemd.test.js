@@ -4,10 +4,10 @@ const fs = require("node:fs")
 const path = require("node:path")
 
 const projectRoot = path.join(__dirname, "..")
-const unitPath = path.join(projectRoot, "config/systemd/extract-standalone@.service")
-const environmentPath = path.join(projectRoot, "config/systemd/extract-standalone.env.example")
+const unitPath = path.join(projectRoot, "config/systemd/extract@.service")
+const environmentPath = path.join(projectRoot, "config/systemd/extract.env.example")
 
-test("systemd template defines the standalone blue-green contract", () => {
+test("systemd template defines the Extract blue-green contract", () => {
     assert.equal(fs.existsSync(unitPath), true, "systemd template must exist")
     const lines = new Set(fs.readFileSync(unitPath, "utf8").split(/\r?\n/))
     const settings = [
@@ -17,12 +17,12 @@ test("systemd template defines the standalone blue-green contract", () => {
         "Group=extract",
         "WorkingDirectory=/usr/local/srv/apps/extract/current",
         "Environment=NODE_ENV=production",
-        "Environment=SOCKET_PATH=/run/extract-standalone-%i/standalone.sock",
+        "Environment=SOCKET_PATH=/run/extract-%i/server.sock",
         "EnvironmentFile=/etc/extract/%i.env",
-        "RuntimeDirectory=extract-standalone-%i",
+        "RuntimeDirectory=extract-%i",
         "RuntimeDirectoryMode=0750",
         "UMask=0007",
-        "ExecStart=/usr/local/bin/bun app/standalone_server.js",
+        "ExecStart=/usr/local/bin/bun app/server.js",
         "Restart=on-failure",
         "RestartSec=5s",
         "KillSignal=SIGTERM",
@@ -33,7 +33,7 @@ test("systemd template defines the standalone blue-green contract", () => {
         "ProtectHome=true",
         "StandardOutput=journal",
         "StandardError=journal",
-        "SyslogIdentifier=extract-standalone-%i",
+        "SyslogIdentifier=extract-%i",
         "WantedBy=multi-user.target"
     ]
 
@@ -42,7 +42,7 @@ test("systemd template defines the standalone blue-green contract", () => {
     }
 })
 
-test("systemd example defines the required standalone environment", () => {
+test("systemd example defines the required environment", () => {
     assert.equal(fs.existsSync(environmentPath), true, "environment example must exist")
     const lines = new Set(fs.readFileSync(environmentPath, "utf8").split(/\r?\n/))
 
