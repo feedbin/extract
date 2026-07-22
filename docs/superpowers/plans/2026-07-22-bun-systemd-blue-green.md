@@ -4,7 +4,7 @@
 
 **Goal:** Make Bun compatibility repeatable and add a hardened systemd template for blue/green standalone-server deployments through `/usr/local/srv/apps/extract/current`.
 
-**Architecture:** Node remains the primary development runtime, while a `test:bun` script runs the same Node-native tests under Bun. A systemd template uses its instance name as the deployment color, loads per-color ports from `/etc/extract/%i.env`, and starts Bun from a shared atomic `current` symlink.
+**Architecture:** Node remains the primary development runtime, while a `test:bun` script runs the same Node-native tests under Bun. Development keeps its TCP port, while production requires a Unix socket. A systemd template uses its instance name as the deployment color, creates a private per-color runtime directory, and starts Bun from a shared atomic `current` symlink.
 
 **Tech Stack:** Node 26, Bun 1.3+, Express 5, node:test, systemd.
 
@@ -15,7 +15,10 @@
 - Use `extract-standalone@blue.service` and `extract-standalone@green.service` as the supported instances.
 - Both instances use `/usr/local/srv/apps/extract/current` and run as `extract:extract`.
 - The Bun production executable is `/usr/local/bin/bun`.
-- Load required per-color configuration from `/etc/extract/%i.env`; blue and green use different ports.
+- Load required per-color configuration from `/etc/extract/%i.env`.
+- Development listens on `PORT` (default `8889`); production requires `SOCKET_PATH`.
+- Blue and green use `/run/extract-standalone-%i/standalone.sock`, created within a systemd-managed runtime directory.
+- Restrict the runtime directory and socket to `extract:extract`; the reverse proxy must have group access.
 - Keep reverse-proxy configuration and traffic switching outside this repository.
 - Do not modify the Ruby application or Ruby tests.
 - Follow test-first red-green-refactor for the systemd artifact.
@@ -71,7 +74,63 @@ git commit -m "Add Bun compatibility test command"
 
 ---
 
-### Task 2: Hardened blue/green systemd template
+### Task 2: Production Unix-socket startup
+
+**Files:**
+- Create: `test/standalone_server.test.js`
+- Modify: `app/standalone_server.js`
+
+**Interfaces:**
+- Consumes: `NODE_ENV`, `SOCKET_PATH`, and the existing development `PORT` behavior.
+- Produces: a production server that listens on the requested Unix socket and removes it during graceful shutdown.
+
+- [ ] **Step 1: Write failing production socket tests**
+
+Create `test/standalone_server.test.js` with child-process tests that:
+
+- start the entry point with `NODE_ENV=production`, a temporary `SOCKET_PATH`, and a temporary `EXTRACT_USERS` file;
+- request `GET /health_check` through `http.get({socketPath, path})` and assert `200` with body `OK`;
+- send `SIGTERM`, assert a zero exit status, and assert the socket is removed;
+- start production without `SOCKET_PATH` and assert a non-zero exit with `SOCKET_PATH is required in production` on stderr.
+
+- [ ] **Step 2: Run the focused tests and verify they fail**
+
+Run:
+
+```bash
+npm test -- --test-name-pattern='production standalone'
+```
+
+Expected: the socket test fails because the entry point still listens on a TCP port, and the missing-path test fails because startup does not reject the absent setting.
+
+- [ ] **Step 3: Implement the production listen target**
+
+In `app/standalone_server.js`, select `process.env.SOCKET_PATH` in production,
+throw a clear error when it is absent, and otherwise retain
+`process.env.PORT || 8889` for development. Pass the selected string or number
+directly to `app.listen()` and log the selected target without assuming it is a
+port.
+
+- [ ] **Step 4: Run the focused tests and verify they pass**
+
+Run:
+
+```bash
+npm test -- --test-name-pattern='production standalone'
+```
+
+Expected: both production startup tests pass.
+
+- [ ] **Step 5: Commit the startup behavior**
+
+```bash
+git add app/standalone_server.js test/standalone_server.test.js
+git commit -m "Listen on a Unix socket in production"
+```
+
+---
+
+### Task 3: Hardened blue/green systemd template
 
 **Files:**
 - Create: `config/systemd/extract-standalone@.service`
@@ -80,7 +139,7 @@ git commit -m "Add Bun compatibility test command"
 
 **Interfaces:**
 - Consumes: instance name `%i` (`blue` or `green`), `/etc/extract/%i.env`, `/usr/local/bin/bun`, and `/usr/local/srv/apps/extract/current`.
-- Produces: a system service that launches `app/standalone_server.js` on the per-color port.
+- Produces: a system service that launches `app/standalone_server.js` on the per-color Unix socket.
 
 - [ ] **Step 1: Write failing artifact tests**
 
@@ -106,7 +165,11 @@ test("systemd template defines the standalone blue-green contract", () => {
         "Group=extract",
         "WorkingDirectory=/usr/local/srv/apps/extract/current",
         "Environment=NODE_ENV=production",
+        "Environment=SOCKET_PATH=/run/extract-standalone-%i/standalone.sock",
         "EnvironmentFile=/etc/extract/%i.env",
+        "RuntimeDirectory=extract-standalone-%i",
+        "RuntimeDirectoryMode=0750",
+        "UMask=0007",
         "ExecStart=/usr/local/bin/bun app/standalone_server.js",
         "Restart=on-failure",
         "RestartSec=5s",
@@ -131,7 +194,6 @@ test("systemd example defines the required standalone environment", () => {
     assert.equal(fs.existsSync(environmentPath), true, "environment example must exist")
     const lines = new Set(fs.readFileSync(environmentPath, "utf8").split(/\r?\n/))
 
-    assert.equal(lines.has("PORT=8889"), true)
     assert.equal(lines.has("EXTRACT_USERS=/etc/extract/users.yml"), true)
 })
 ```
@@ -163,7 +225,11 @@ User=extract
 Group=extract
 WorkingDirectory=/usr/local/srv/apps/extract/current
 Environment=NODE_ENV=production
+Environment=SOCKET_PATH=/run/extract-standalone-%i/standalone.sock
 EnvironmentFile=/etc/extract/%i.env
+RuntimeDirectory=extract-standalone-%i
+RuntimeDirectoryMode=0750
+UMask=0007
 ExecStart=/usr/local/bin/bun app/standalone_server.js
 Restart=on-failure
 RestartSec=5s
@@ -187,8 +253,6 @@ Create `config/systemd/extract-standalone.env.example`:
 
 ```text
 # Copy to /etc/extract/blue.env and /etc/extract/green.env.
-# Assign a distinct port to each color.
-PORT=8889
 EXTRACT_USERS=/etc/extract/users.yml
 ```
 
@@ -211,7 +275,7 @@ npm test
 npm run test:bun
 ```
 
-Expected: 18 tests pass and zero fail under each runtime.
+Expected: 20 tests pass and zero fail under each runtime.
 
 - [ ] **Step 7: Commit the service artifact**
 
@@ -222,7 +286,7 @@ git commit -m "Add blue-green standalone systemd service"
 
 ---
 
-### Task 3: Blue/green deployment documentation and final verification
+### Task 4: Blue/green deployment documentation and final verification
 
 **Files:**
 - Modify: `README.md:42-74`
@@ -265,17 +329,22 @@ sudo systemctl daemon-reload
 sudo systemd-analyze verify /etc/systemd/system/extract-standalone@.service
 ```
 
-The template instance is the deployment color. Create one environment file per
-color using `config/systemd/extract-standalone.env.example` as a starting
-point. Both files may share `EXTRACT_USERS`, but they must use distinct ports:
+The template instance is the deployment color. Each instance gets a private
+runtime directory and Unix socket:
+
+```text
+/run/extract-standalone-blue/standalone.sock
+/run/extract-standalone-green/standalone.sock
+```
+
+Create one environment file per color using
+`config/systemd/extract-standalone.env.example` as a starting point:
 
 ```text
 # /etc/extract/blue.env
-PORT=8889
 EXTRACT_USERS=/etc/extract/users.yml
 
 # /etc/extract/green.env
-PORT=8890
 EXTRACT_USERS=/etc/extract/users.yml
 ```
 
@@ -288,8 +357,11 @@ sudo systemctl enable extract-standalone@blue.service
 sudo systemctl enable extract-standalone@green.service
 ```
 
+The reverse proxy account must be a member of the `extract` group so it can
+traverse the runtime directory and connect to the socket.
+
 For a deployment, install dependencies in a versioned release directory and
-atomically update `current`. Start the inactive color, verify its own port,
+atomically update `current`. Start the inactive color, verify its own socket,
 switch traffic in the external proxy or load balancer, and stop the old color:
 
 ```bash
@@ -297,9 +369,9 @@ sudo ln -sfn /usr/local/srv/apps/extract/releases/RELEASE /usr/local/srv/apps/ex
 sudo mv -Tf /usr/local/srv/apps/extract/current.next /usr/local/srv/apps/extract/current
 
 sudo systemctl start extract-standalone@green.service
-curl --fail http://127.0.0.1:8890/health_check
+curl --fail --unix-socket /run/extract-standalone-green/standalone.sock http://localhost/health_check
 
-# Switch external traffic to port 8890, then retire blue.
+# Switch external traffic to the green socket, then retire blue.
 sudo systemctl stop extract-standalone@blue.service
 ```
 
@@ -326,8 +398,8 @@ bundle exec rake
 
 Expected:
 
-- 18 Node tests pass;
-- 18 Bun tests pass;
+- 20 Node tests pass;
+- 20 Bun tests pass;
 - 14 Ruby runs and 34 assertions pass with zero failures or errors.
 
 - [ ] **Step 3: Inspect the final diff**
@@ -339,9 +411,10 @@ git diff --check
 git status --short
 ```
 
-Expected: no whitespace errors; only `package.json`, `README.md`, the two
-systemd files, and `test/systemd.test.js` changed across the implementation
-commits.
+Expected: no whitespace errors; only `package.json`, `README.md`,
+`app/standalone_server.js`, the two systemd files,
+`test/standalone_server.test.js`, and `test/systemd.test.js` changed across the
+implementation commits.
 
 - [ ] **Step 4: Commit the documentation**
 

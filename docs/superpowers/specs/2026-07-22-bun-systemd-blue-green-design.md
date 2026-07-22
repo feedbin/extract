@@ -44,25 +44,43 @@ Both instances use:
 - the journal for standard output and errors.
 
 Each color loads `/etc/extract/%i.env`, where `%i` expands to `blue` or
-`green`. The required environment values are:
+`green`. The required deployment environment value is:
 
 ```text
-PORT=8889
 EXTRACT_USERS=/etc/extract/users.yml
 ```
 
-Blue and green must use different ports. The repository includes
-`config/systemd/extract-standalone.env.example`; operators copy it to
-`/etc/extract/blue.env` and `/etc/extract/green.env` and set distinct ports.
-The environment files are deployment configuration and are not installed or
+Production uses Unix-domain sockets rather than TCP ports. systemd gives each
+color its own runtime directory and socket path:
+
+```text
+/run/extract-standalone-blue/standalone.sock
+/run/extract-standalone-green/standalone.sock
+```
+
+`RuntimeDirectory=extract-standalone-%i` creates the directory as
+`extract:extract`, and `Environment=SOCKET_PATH=...` passes the socket path to
+the server. `RuntimeDirectoryMode=0750` and `UMask=0007` keep the socket
+accessible only to the service account and members of the `extract` group.
+The external reverse proxy user must therefore belong to that group.
+
+The repository includes `config/systemd/extract-standalone.env.example`;
+operators copy it to `/etc/extract/blue.env` and `/etc/extract/green.env`.
+Those environment files are deployment configuration and are not installed or
 modified automatically.
 
 ## Process lifecycle and hardening
 
+In development, `app/standalone_server.js` continues to use `PORT`, defaulting
+to `8889`. In production, `SOCKET_PATH` is required and the server fails fast
+when it is absent.
+
 The service starts after `network-online.target` and restarts after failures
 with a short delay. systemd sends `SIGTERM`, allowing
 `app/standalone_server.js` to stop accepting connections and close idle
-connections. Shutdown has a 30-second timeout.
+connections. A graceful close unlinks the socket. If the process crashes,
+systemd removes and recreates the per-instance runtime directory before the
+restart, removing any stale socket. Shutdown has a 30-second timeout.
 
 The unit applies settings compatible with a read-only application checkout:
 
@@ -87,7 +105,7 @@ The operational sequence is:
 1. install the new release and its npm dependencies;
 2. atomically update the `current` symlink;
 3. start the inactive color;
-4. check `GET /health_check` on the inactive color's port;
+4. check `GET /health_check` through the inactive color's socket;
 5. switch traffic in the external proxy or load balancer;
 6. stop the previously active color.
 
@@ -107,6 +125,7 @@ Add a Node-native unit-file test that reads
 - shared working directory;
 - `extract` user and group;
 - Bun executable and standalone entry point;
+- per-instance runtime directory, socket path, and restrictive permissions;
 - production environment, restart policy, graceful stop, and hardening.
 
 Verification runs:
