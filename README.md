@@ -44,6 +44,7 @@ Run both compatibility suites with:
 
 ```bash
 npm test
+npm run test:bun
 ```
 
 Configuration

@@ -4,13 +4,14 @@
 
 **Goal:** Replace the custom worker lifecycle, poison cache, and watchdog with a small Piscina-backed parse pool whose requests wait indefinitely for admission and whose timeout starts only after admission.
 
-**Architecture:** `app/parse-pool.js` will own a fixed-size Piscina instance plus a tiny FIFO admission gate. The gate limits submitted work to the worker count; after admission, each task gets a fresh `AbortSignal.timeout()`, allowing Piscina to terminate and replace a stuck worker without counting admission wait time against the parse timeout. Fetching and HTTP response behavior remain in `app/app.js`.
+**Architecture:** `app/parse-pool.js` will own a fixed-size Piscina instance plus a tiny FIFO admission gate. The gate limits submitted work to the worker count; after admission, each task gets a fresh `AbortSignal.timeout()`, allowing Piscina to terminate and replace a stuck worker without counting admission wait time against the parse timeout. All fetching and HTTP response behavior remain in `app/app.js`; Mercury multi-page fetching is disabled in the worker.
 
 **Tech Stack:** Node.js 26, CommonJS, Express 5, Piscina 5, Node test runner
 
 ## Global Constraints
 
 - Fetch and decode HTML on the main Node.js event loop.
+- Disable Mercury's multi-page fetching so parser workers perform no network requests.
 - Parse fetched HTML outside the main event loop in a fixed-size worker pool.
 - Default `PARSE_WORKERS` to `2` and `PARSE_TIMEOUT` to `10000` milliseconds.
 - Wait without a queue limit when every parser worker is occupied.
@@ -233,6 +234,7 @@ function createParsePool({size = 2, timeout = 10000, workerPath = path.join(__di
         filename: workerPath,
         minThreads: size,
         maxThreads: size,
+        // Bun cannot terminate Piscina workers waiting in synchronous Atomics.
         atomics: "disabled"
     })
     const waiting = []
@@ -277,7 +279,7 @@ Replace `app/parse-worker.js` with:
 ```js
 const parser = require("@jocmp/mercury-parser")
 
-module.exports = ({url, html}) => parser.parse(url, {html})
+module.exports = ({url, html}) => parser.parse(url, {html, fetchAllPages: false})
 ```
 
 Replace `test/stub-worker.js` with:

@@ -6,6 +6,7 @@ function createParsePool({size = 2, timeout = 10000, workerPath = path.join(__di
         filename: workerPath,
         minThreads: size,
         maxThreads: size,
+        // Bun cannot terminate Piscina workers waiting in synchronous Atomics.
         atomics: "disabled"
     })
     const waiting = []

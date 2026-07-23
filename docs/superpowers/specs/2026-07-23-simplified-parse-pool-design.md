@@ -13,6 +13,7 @@ The service will continue to:
 - authenticate requests before doing network work;
 - fetch and decode HTML on the main Node.js event loop;
 - limit fetches to 10 seconds and responses to 5 MB;
+- disable Mercury's multi-page fetching so parser workers do no network work;
 - parse fetched HTML outside the main event loop;
 - use a fixed number of parser workers; and
 - terminate a worker when its parse exceeds the configured parse timeout.
@@ -32,8 +33,10 @@ wrapper preserves the existing `parse(url, html)` and `close()` interface so
 the route and test teardown remain straightforward.
 
 `app/parse-worker.js` exports one function that calls
-`parser.parse(url, {html})`. Piscina loads and invokes that export directly, so
-the application no longer handles worker messages, exits, or errors itself.
+`parser.parse(url, {html, fetchAllPages: false})`. Piscina loads and invokes
+that export directly, so the application no longer handles worker messages,
+exits, or errors itself. Disabling multi-page fetching keeps all network I/O
+in `app/app.js` on the main event loop.
 
 ## Admission and Timing
 
@@ -97,7 +100,9 @@ Tests will cover the behavior owned by the application:
 3. More requests than the worker count wait and eventually run instead of
    receiving a queue-full rejection.
 4. Time spent waiting for admission does not consume the parse timeout.
-5. The existing HTTP, authentication, fetch, charset, redirect, and upstream
+5. A supplied page with a next-page link is parsed without worker network I/O
+   or aggregation of linked content.
+6. The existing HTTP, authentication, fetch, charset, redirect, and upstream
    failure tests continue to pass.
 
 Tests will not duplicate Piscina's internal lifecycle test suite for worker

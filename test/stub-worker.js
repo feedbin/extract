@@ -4,5 +4,8 @@ module.exports = ({url, html}) => {
             // Busy loop until Piscina terminates this worker.
         }
     }
+    if (url === "boom") {
+        throw new Error("boom")
+    }
     return {url, html}
 }
