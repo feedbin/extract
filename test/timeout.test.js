@@ -53,7 +53,7 @@ before(async () => {
     fixtureOrigin = `http://localhost:${fixtureServer.address().port}`
 
     // A 1ms deadline makes every parse time out: the worker round-trip alone
-    // takes longer, so the first request reliably poisons its URL.
+    // takes longer, so both requests reliably exercise timeout handling.
     const port = await freePort()
     appOrigin = `http://localhost:${port}`
     const env = {...process.env, PORT: String(port), PARSE_TIMEOUT: "1"}
@@ -73,7 +73,7 @@ function parserUrl(url) {
     return `${appOrigin}/parser/demo/${signature}?base64_url=${Buffer.from(url).toString("base64url")}`
 }
 
-test("a parse timeout opens the poison circuit breaker", async () => {
+test("a URL is attempted again after a parse timeout", async () => {
     const url = `${fixtureOrigin}/article`
 
     const first = await fetch(parserUrl(url))
@@ -84,5 +84,5 @@ test("a parse timeout opens the poison circuit breaker", async () => {
     const second = await fetch(parserUrl(url))
     assert.equal(second.status, 400)
     assert.equal((await second.json()).messages, "Cannot extract this URL.")
-    assert.equal(fixtureHits, 1, "poisoned URL must be rejected before fetching again")
+    assert.equal(fixtureHits, 2, "a previous timeout must not block a later fetch")
 })

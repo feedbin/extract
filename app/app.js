@@ -62,8 +62,6 @@ function haltWithError(response, message) {
 
 const FETCH_TIMEOUT = 10000
 const MAX_CONTENT_LENGTH = 5242880
-const POISON_TTL = 60 * 60 * 1000
-const POISON_LIMIT = 1000
 
 const pool = createParsePool({
     size: parseInt(process.env.PARSE_WORKERS, 10) || 2,
@@ -72,36 +70,6 @@ const pool = createParsePool({
 })
 // Exposed so tests can shut the workers down and let the process exit.
 app.locals.parsePool = pool
-
-// URLs whose parse hit the deadline are refused for POISON_TTL, so client
-// retries cannot repeatedly feed a pathological page to the workers.
-const poisonedUrls = new Map()
-
-function isPoisoned(url) {
-    const expiry = poisonedUrls.get(url)
-    if (expiry === undefined) {
-        return false
-    }
-    if (Date.now() >= expiry) {
-        poisonedUrls.delete(url)
-        return false
-    }
-    return true
-}
-
-function markPoisoned(url) {
-    if (poisonedUrls.size >= POISON_LIMIT) {
-        for (const [key, expiry] of poisonedUrls) {
-            if (Date.now() >= expiry) {
-                poisonedUrls.delete(key)
-            }
-        }
-        if (poisonedUrls.size >= POISON_LIMIT) {
-            poisonedUrls.delete(poisonedUrls.keys().next().value)
-        }
-    }
-    poisonedUrls.set(url, Date.now() + POISON_TTL)
-}
 
 function charsetFrom(contentType) {
     const match = /charset\s*=\s*["']?([\w-]+)/i.exec(contentType || "")
@@ -193,11 +161,6 @@ app.get("/parser/:user/:signature", async (request, response) => {
             return
         }
 
-        if (isPoisoned(url)) {
-            response.locals.extra = `poisoned url=${url}`
-            return haltWithError(response, "Cannot extract this URL.")
-        }
-
         const fetchStart = Date.now()
         let html = null
         try {
@@ -216,9 +179,6 @@ app.get("/parser/:user/:signature", async (request, response) => {
                 response.locals.extra = `queue_full url=${url}`
                 response.status(503).json({error: true, messages: "Parser is busy. Try again later."})
                 return
-            }
-            if (error.code === "PARSE_TIMEOUT") {
-                markPoisoned(url)
             }
             response.locals.extra = `parse_error url=${url} message=${error.message}`
             return haltWithError(response, "Cannot extract this URL.")
