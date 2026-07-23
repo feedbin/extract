@@ -1,8 +1,8 @@
 const crypto = require("node:crypto")
 const fs = require("node:fs")
 const YAML = require("yaml")
-const parser = require("@jocmp/mercury-parser")
 const express = require("express")
+const createParsePool = require("./parse-pool")
 const app = express()
 
 // Production listens on a Unix socket, so the client IP is only available
@@ -60,6 +60,106 @@ function haltWithError(response, message) {
     return null
 }
 
+const FETCH_TIMEOUT = 10000
+const MAX_CONTENT_LENGTH = 5242880
+const POISON_TTL = 60 * 60 * 1000
+const POISON_LIMIT = 1000
+
+const pool = createParsePool({
+    size: parseInt(process.env.PARSE_WORKERS, 10) || 2,
+    timeout: parseInt(process.env.PARSE_TIMEOUT, 10) || 10000,
+    queueLimit: parseInt(process.env.PARSE_QUEUE_LIMIT, 10) || 20
+})
+// Exposed so tests can shut the workers down and let the process exit.
+app.locals.parsePool = pool
+
+// URLs whose parse hit the deadline are refused for POISON_TTL, so client
+// retries cannot repeatedly feed a pathological page to the workers.
+const poisonedUrls = new Map()
+
+function isPoisoned(url) {
+    const expiry = poisonedUrls.get(url)
+    if (expiry === undefined) {
+        return false
+    }
+    if (Date.now() >= expiry) {
+        poisonedUrls.delete(url)
+        return false
+    }
+    return true
+}
+
+function markPoisoned(url) {
+    if (poisonedUrls.size >= POISON_LIMIT) {
+        for (const [key, expiry] of poisonedUrls) {
+            if (Date.now() >= expiry) {
+                poisonedUrls.delete(key)
+            }
+        }
+        if (poisonedUrls.size >= POISON_LIMIT) {
+            poisonedUrls.delete(poisonedUrls.keys().next().value)
+        }
+    }
+    poisonedUrls.set(url, Date.now() + POISON_TTL)
+}
+
+function charsetFrom(contentType) {
+    const match = /charset\s*=\s*["']?([\w-]+)/i.exec(contentType || "")
+    return match ? match[1] : null
+}
+
+// Mercury skips all charset handling for pre-fetched HTML, so decode here.
+// A meta tag wins over the Content-Type header, matching Mercury's own fetch.
+function decodeHtml(body, contentType) {
+    if (body[0] === 0xFF && body[1] === 0xFE) {
+        return new TextDecoder("utf-16le").decode(body)
+    }
+    if (body[0] === 0xFE && body[1] === 0xFF) {
+        return new TextDecoder("utf-16be").decode(body)
+    }
+    const head = body.subarray(0, 16384).toString("latin1")
+    const metaCharset = /<meta[^>]*charset\s*=\s*["']?([\w-]+)/i.exec(head)?.[1]
+    const label = metaCharset || charsetFrom(contentType) || "utf-8"
+    try {
+        return new TextDecoder(label).decode(body)
+    } catch {
+        return new TextDecoder().decode(body)
+    }
+}
+
+function discard(response) {
+    response.body?.cancel().catch(() => {})
+}
+
+// Mirrors the fetch behavior Mercury had when it fetched URLs itself:
+// 10 second deadline, 5MB cap, reject non-200 and non-text responses.
+async function fetchHtml(url) {
+    const response = await fetch(url, {signal: AbortSignal.timeout(FETCH_TIMEOUT)})
+    if (response.status !== 200) {
+        discard(response)
+        throw new Error(`Resource returned a response status code of ${response.status} and resource was instructed to reject non-200 status codes.`)
+    }
+    const contentType = response.headers.get("content-type") ?? ""
+    if (!contentType.includes("html") && !contentType.includes("text")) {
+        discard(response)
+        throw new Error("Content does not appear to be text.")
+    }
+    if (Number(response.headers.get("content-length")) > MAX_CONTENT_LENGTH) {
+        discard(response)
+        throw new Error(`Content for this resource was too large. Maximum content length is ${MAX_CONTENT_LENGTH}.`)
+    }
+    const chunks = []
+    let length = 0
+    for await (const chunk of response.body ?? []) {
+        length += chunk.length
+        if (length > MAX_CONTENT_LENGTH) {
+            throw new Error(`Content for this resource was too large. Maximum content length is ${MAX_CONTENT_LENGTH}.`)
+        }
+        chunks.push(chunk)
+    }
+    return decodeHtml(Buffer.concat(chunks), contentType)
+}
+
 function authenticate(request, response) {
     const raw = request.query.base64_url
     const param = Array.isArray(raw) ? raw[raw.length - 1] : raw
@@ -93,14 +193,43 @@ app.get("/parser/:user/:signature", async (request, response) => {
             return
         }
 
-        const start = Date.now()
-        const result = await parser.parse(url)
+        if (isPoisoned(url)) {
+            response.locals.extra = `poisoned url=${url}`
+            return haltWithError(response, "Cannot extract this URL.")
+        }
+
+        const fetchStart = Date.now()
+        let html = null
+        try {
+            html = await fetchHtml(url)
+        } catch (error) {
+            response.locals.extra = `fetch_error url=${url} message=${error.message}`
+            return haltWithError(response, "Cannot extract this URL.")
+        }
+
+        const parseStart = Date.now()
+        let result = null
+        try {
+            result = await pool.parse(url, html)
+        } catch (error) {
+            if (error.code === "QUEUE_FULL") {
+                response.locals.extra = `queue_full url=${url}`
+                response.status(503).json({error: true, messages: "Parser is busy. Try again later."})
+                return
+            }
+            if (error.code === "PARSE_TIMEOUT") {
+                markPoisoned(url)
+            }
+            response.locals.extra = `parse_error url=${url} message=${error.message}`
+            return haltWithError(response, "Cannot extract this URL.")
+        }
+
         if (result && typeof result === "object" && "error" in result) {
             response.locals.extra = `parse_error url=${url} message=${result.message}`
             return haltWithError(response, "Cannot extract this URL.")
         }
 
-        response.locals.extra = `parse_time=${Date.now() - start} url=${url}`
+        response.locals.extra = `fetch_time=${parseStart - fetchStart} parse_time=${Date.now() - parseStart} url=${url}`
         response.json(result)
     } catch (error) {
         response.locals.extra = `exception=${error.message} url=${url}`

@@ -88,9 +88,10 @@ before(async () => {
     fixtureOrigin = `http://localhost:${fixtureServer.address().port}`
 })
 
-after(() => {
+after(async () => {
     appServer?.close()
     fixtureServer?.close()
+    await app.locals.parsePool.close()
     fs.rmSync(temporaryDirectory, {recursive: true, force: true})
     if (previousExtractUsers === undefined) {
         delete process.env.EXTRACT_USERS

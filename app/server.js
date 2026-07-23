@@ -2,6 +2,14 @@ if (process.env.NODE_ENV === "production" && !process.env.EXTRACT_USERS) {
     throw new Error("EXTRACT_USERS is required in production")
 }
 const app = require("./app")
+const startWatchdog = require("./watchdog")
+
+const defaultWatchdogLimit = process.env.NODE_ENV === "production" ? 30000 : 0
+const watchdogLimit = process.env.WATCHDOG_LIMIT === undefined ? defaultWatchdogLimit : parseInt(process.env.WATCHDOG_LIMIT, 10)
+if (watchdogLimit > 0) {
+    startWatchdog(watchdogLimit)
+}
+
 const serverTarget = process.env.NODE_ENV === "production" ? process.env.SOCKET_PATH : process.env.PORT || 8889
 if (!serverTarget) {
     throw new Error("SOCKET_PATH is required in production")
