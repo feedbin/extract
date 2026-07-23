@@ -155,7 +155,7 @@ cache, watchdog, and timeout integration-test changes.
 
 **Interfaces:**
 - Consumes: `createParsePool({size, timeout, workerPath})`, where all options remain optional.
-- Produces: `{parse(url, html), close()}`. `parse()` waits for FIFO admission, then resolves with the worker result or rejects with Piscina's `PISCINA_ERR_ABORT` when the parse deadline expires. `close()` returns the Promise from `Piscina.destroy()`.
+- Produces: `{parse(url, html), close()}`. `parse()` waits for FIFO admission, then resolves with the worker result or rejects with Piscina's `AbortError` when the parse deadline expires. `close()` returns the Promise from `Piscina.destroy()`.
 
 - [ ] **Step 1: Replace the pool tests with application-owned behavior tests**
 
@@ -178,7 +178,7 @@ test("parse pool resolves results", async () => {
 
 test("parse pool terminates a stuck parse and recovers its slot", async () => {
     const pool = createParsePool({size: 1, timeout: 200, workerPath})
-    await assert.rejects(pool.parse("hang", ""), (error) => error.code === "PISCINA_ERR_ABORT")
+    await assert.rejects(pool.parse("hang", ""), (error) => error.name === "AbortError")
     const result = await pool.parse("http://example.com/after", "ok")
     assert.equal(result.url, "http://example.com/after")
     await pool.close()
@@ -194,7 +194,7 @@ test("parse pool waits for capacity without consuming the parse timeout", async 
     const [hung, ...waiting] = await Promise.allSettled(work)
 
     assert.equal(hung.status, "rejected")
-    assert.equal(hung.reason.code, "PISCINA_ERR_ABORT")
+    assert.equal(hung.reason.name, "AbortError")
     assert.equal(waiting.every((result) => result.status === "fulfilled"), true)
     await pool.close()
 })
@@ -232,7 +232,8 @@ function createParsePool({size = 2, timeout = 10000, workerPath = path.join(__di
     const pool = new Piscina({
         filename: workerPath,
         minThreads: size,
-        maxThreads: size
+        maxThreads: size,
+        atomics: "disabled"
     })
     const waiting = []
     let active = 0

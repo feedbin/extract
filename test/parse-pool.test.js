@@ -12,34 +12,25 @@ test("parse pool resolves results", async () => {
     await pool.close()
 })
 
-test("parse pool terminates and replaces a stuck worker", async () => {
+test("parse pool terminates a stuck parse and recovers its slot", async () => {
     const pool = createParsePool({size: 1, timeout: 200, workerPath})
-    await assert.rejects(pool.parse("hang", ""), (error) => error.code === "PARSE_TIMEOUT")
+    await assert.rejects(pool.parse("hang", ""), (error) => error.name === "AbortError")
     const result = await pool.parse("http://example.com/after", "ok")
     assert.equal(result.url, "http://example.com/after")
     await pool.close()
 })
 
-test("parse pool rejects new work when the queue is full", async () => {
-    const pool = createParsePool({size: 1, timeout: 500, queueLimit: 1, workerPath})
-    const hung = pool.parse("hang", "")
-    const queued = pool.parse("http://example.com/queued", "")
-    await assert.rejects(pool.parse("http://example.com/rejected", ""), (error) => error.code === "QUEUE_FULL")
-    await assert.rejects(hung, (error) => error.code === "PARSE_TIMEOUT")
-    assert.equal((await queued).url, "http://example.com/queued")
-    await pool.close()
-})
+test("parse pool waits for capacity without consuming the parse timeout", async () => {
+    const pool = createParsePool({size: 1, timeout: 100, workerPath})
+    const work = [
+        pool.parse("hang", ""),
+        ...Array.from({length: 25}, (_, index) => pool.parse(`http://example.com/${index}`, "ok"))
+    ]
 
-test("parse pool survives a crashing worker", async () => {
-    const pool = createParsePool({size: 1, workerPath})
-    await assert.rejects(pool.parse("boom", ""), /boom/)
-    const result = await pool.parse("http://example.com/next", "")
-    assert.equal(result.url, "http://example.com/next")
-    await pool.close()
-})
+    const [hung, ...waiting] = await Promise.allSettled(work)
 
-test("parse pool rejects work after close", async () => {
-    const pool = createParsePool({size: 1, workerPath})
+    assert.equal(hung.status, "rejected")
+    assert.equal(hung.reason.name, "AbortError")
+    assert.equal(waiting.every((result) => result.status === "fulfilled"), true)
     await pool.close()
-    await assert.rejects(pool.parse("http://example.com/", ""), (error) => error.code === "POOL_CLOSED")
 })

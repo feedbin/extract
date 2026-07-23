@@ -65,8 +65,7 @@ const MAX_CONTENT_LENGTH = 5242880
 
 const pool = createParsePool({
     size: parseInt(process.env.PARSE_WORKERS, 10) || 2,
-    timeout: parseInt(process.env.PARSE_TIMEOUT, 10) || 10000,
-    queueLimit: parseInt(process.env.PARSE_QUEUE_LIMIT, 10) || 20
+    timeout: parseInt(process.env.PARSE_TIMEOUT, 10) || 10000
 })
 // Exposed so tests can shut the workers down and let the process exit.
 app.locals.parsePool = pool
@@ -175,11 +174,6 @@ app.get("/parser/:user/:signature", async (request, response) => {
         try {
             result = await pool.parse(url, html)
         } catch (error) {
-            if (error.code === "QUEUE_FULL") {
-                response.locals.extra = `queue_full url=${url}`
-                response.status(503).json({error: true, messages: "Parser is busy. Try again later."})
-                return
-            }
             response.locals.extra = `parse_error url=${url} message=${error.message}`
             return haltWithError(response, "Cannot extract this URL.")
         }
