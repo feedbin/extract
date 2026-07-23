@@ -14,13 +14,8 @@ function loadUsers() {
         return {demo: "demo"}
     }
     const users = YAML.parse(fs.readFileSync(process.env.EXTRACT_USERS, "utf8"))
-    const valid = users !== null &&
-        typeof users === "object" &&
-        !Array.isArray(users) &&
-        Object.keys(users).length > 0 &&
-        Object.values(users).every((secret) => typeof secret === "string" && secret.length > 0)
-    if (!valid) {
-        throw new Error("Invalid EXTRACT_USERS configuration: expected a non-empty mapping of usernames to non-empty string secrets")
+    if (!users || typeof users !== "object" || !Object.values(users).every((secret) => typeof secret === "string" && secret.length > 0)) {
+        throw new Error("Invalid EXTRACT_USERS configuration: expected a mapping of usernames to non-empty string secrets")
     }
     return users
 }
