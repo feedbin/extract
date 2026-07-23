@@ -9,6 +9,23 @@ const app = express()
 // from the reverse proxy's X-Forwarded-For header.
 app.set("trust proxy", true)
 
+const FETCH_TIMEOUT = 5000
+const MAX_CONTENT_LENGTH = 5242880
+
+const pool = createParsePool({
+    size: parseInt(process.env.PARSE_WORKERS, 10) || 1,
+    timeout: parseInt(process.env.PARSE_TIMEOUT, 10) || 2000
+})
+// Exposed so tests can shut the workers down and let the process exit.
+app.locals.parsePool = pool
+
+// Log every request once its response is sent. Handlers add context
+// through response.locals.extra.
+app.use((request, response, next) => {
+    response.on("finish", () => log(request, response, response.locals.extra))
+    next()
+})
+
 function loadUsers() {
     if (!process.env.EXTRACT_USERS) {
         return {demo: "demo"}
@@ -29,13 +46,6 @@ function log(request, response, extra) {
     }
     console.log(output)
 }
-
-// Log every request once its response is sent. Handlers add context
-// through response.locals.extra.
-app.use((request, response, next) => {
-    response.on("finish", () => log(request, response, response.locals.extra))
-    next()
-})
 
 // Buffer's base64url decoder is lenient, so validate the URL-safe alphabet,
 // padding, length, and canonical trailing bits before accepting input.
@@ -59,16 +69,6 @@ function haltWithError(response, message) {
     response.status(400).json({error: true, messages: message})
     return null
 }
-
-const FETCH_TIMEOUT = 10000
-const MAX_CONTENT_LENGTH = 5242880
-
-const pool = createParsePool({
-    size: parseInt(process.env.PARSE_WORKERS, 10) || 2,
-    timeout: parseInt(process.env.PARSE_TIMEOUT, 10) || 10000
-})
-// Exposed so tests can shut the workers down and let the process exit.
-app.locals.parsePool = pool
 
 function charsetFrom(contentType) {
     const match = /charset\s*=\s*["']?([\w-]+)/i.exec(contentType || "")

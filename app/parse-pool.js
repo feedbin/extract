@@ -1,7 +1,7 @@
 const Piscina = require("piscina")
 const path = require("node:path")
 
-function createParsePool({size = 2, timeout = 10000, workerPath = path.join(__dirname, "parse-worker.js")} = {}) {
+function createParsePool({size = 2, timeout = 2000, workerPath = path.join(__dirname, "parse-worker.js")} = {}) {
     const pool = new Piscina({
         filename: workerPath,
         minThreads: size,
