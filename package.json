@@ -5,7 +5,7 @@
   "private": true,
   "license": "MIT",
   "dependencies": {
-    "@jocmp/mercury-parser": "^3.0.9",
-    "express": "^5.1.0"
+    "@jocmp/mercury-parser": "github:benubois/mercury-parser-jocmp#leak",
+    "express": "^5.2.1"
   }
 }
