@@ -11,5 +11,8 @@
     "@jocmp/mercury-parser": "github:benubois/mercury-parser-jocmp#leak",
     "express": "^5.2.1",
     "yaml": "^2.9.0"
+  },
+  "overrides": {
+    "form-data": "4.0.4"
   }
 }
