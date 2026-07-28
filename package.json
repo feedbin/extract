@@ -4,8 +4,12 @@
   "description": "Extract just the content from a web page.",
   "private": true,
   "license": "MIT",
+  "scripts": {
+    "test": "node --test"
+  },
   "dependencies": {
     "@jocmp/mercury-parser": "github:benubois/mercury-parser-jocmp#leak",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "yaml": "^2.9.0"
   }
 }

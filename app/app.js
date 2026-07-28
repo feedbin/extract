@@ -1,36 +1,113 @@
-const parser  = require("@jocmp/mercury-parser")
+const crypto = require("node:crypto")
+const fs = require("node:fs")
+const YAML = require("yaml")
+const parser = require("@jocmp/mercury-parser")
 const express = require("express")
-const app     = express()
+const app = express()
 
-function log(request, extra) {
-    let output = `[${request.ip}] - ${request.method} ${request.url}`
+// Production listens on a Unix socket, so the client IP is only available
+// from the reverse proxy's X-Forwarded-For header.
+app.set("trust proxy", true)
+
+function loadUsers() {
+    if (!process.env.EXTRACT_USERS) {
+        return {demo: "demo"}
+    }
+    const users = YAML.parse(fs.readFileSync(process.env.EXTRACT_USERS, "utf8"))
+    if (!users || typeof users !== "object" || !Object.values(users).every((secret) => typeof secret === "string" && secret.length > 0)) {
+        throw new Error("Invalid EXTRACT_USERS configuration: expected a mapping of usernames to non-empty string secrets")
+    }
+    return users
+}
+
+const users = loadUsers()
+
+function log(request, response, extra) {
+    let output = `[${request.ip}] - ${request.method} ${request.url} status_code=${response.statusCode}`
     if (extra) {
         output = `${output}: ${extra}`
     }
     console.log(output)
 }
 
-app.use(express.json({limit: `10mb`}))
-
-app.get("/health_check", (request, response) => {
-    log(request)
-    response.send("200 OK")
+// Log every request once its response is sent. Handlers add context
+// through response.locals.extra.
+app.use((request, response, next) => {
+    response.on("finish", () => log(request, response, response.locals.extra))
+    next()
 })
 
-app.post("/parser", async (request, response) => {
+// Buffer's base64url decoder is lenient, so validate the URL-safe alphabet,
+// padding, length, and canonical trailing bits before accepting input.
+function urlsafeDecode64(input) {
+    if (input.endsWith("=") || input.length % 4 === 0) {
+        if (!/^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-]{2}==|[A-Za-z0-9_-]{3}=)?$/.test(input)) {
+            return null
+        }
+    } else if (!/^[A-Za-z0-9_-]+$/.test(input) || input.length % 4 === 1) {
+        return null
+    }
+    const unpadded = input.replace(/=+$/, "")
+    const decoded = Buffer.from(unpadded, "base64url")
+    if (decoded.toString("base64url") !== unpadded) {
+        return null
+    }
+    return decoded
+}
+
+function haltWithError(response, message) {
+    response.status(400).json({error: true, messages: message})
+    return null
+}
+
+function authenticate(request, response) {
+    const raw = request.query.base64_url
+    const param = Array.isArray(raw) ? raw[raw.length - 1] : raw
+    if (param === undefined) {
+        return haltWithError(response, "Invalid request. Missing base64_url parameter.")
+    }
+    const url = urlsafeDecode64(param)
+    if (url === null) {
+        return haltWithError(response, "Invalid request. Invalid base64_url parameter.")
+    }
+    const user = request.params.user
+    if (!Object.hasOwn(users, user)) {
+        return haltWithError(response, `User does not exist: ${user}.`)
+    }
+    const key = users[user]
+    if (!key || request.params.signature !== crypto.createHmac("sha1", key).update(url).digest("hex")) {
+        return haltWithError(response, "Invalid signature.")
+    }
+    return url.toString("utf8")
+}
+
+app.get("/health_check", (request, response) => {
+    response.send("OK")
+})
+
+app.get("/parser/:user/:signature", async (request, response) => {
+    let url = null
     try {
-        const start = new Date().getTime()
-        const result = await parser.parse(request.body.url, request.body.options)
-        const end = new Date().getTime() - start
-        const code = "error" in result ? 400 : 200
-        log(request, `parse_time=${end} url=${request.body.url}`)
-        response.status(code).send(result)
+        url = authenticate(request, response)
+        if (url === null) {
+            return
+        }
+
+        const start = Date.now()
+        const result = await parser.parse(url)
+        if (result && typeof result === "object" && "error" in result) {
+            response.locals.extra = `parse_error url=${url} message=${result.message}`
+            return haltWithError(response, "Cannot extract this URL.")
+        }
+
+        response.locals.extra = `parse_time=${Date.now() - start} url=${url}`
+        response.json(result)
     } catch (error) {
-        log(request, error.message)
-        response.status(400).json({
-            error: true,
-            messages: error.message
-        })
+        response.locals.extra = `exception=${error.message} url=${url}`
+        console.error(error.stack)
+        if (!response.headersSent) {
+            haltWithError(response, "Cannot extract this URL.")
+        }
     }
 })
 

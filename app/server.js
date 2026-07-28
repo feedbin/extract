@@ -1,7 +1,13 @@
+if (process.env.NODE_ENV === "production" && !process.env.EXTRACT_USERS) {
+    throw new Error("EXTRACT_USERS is required in production")
+}
 const app = require("./app")
-const serverPort = process.env.PORT || 3000
-const server = app.listen(serverPort, () => {
-    console.log(`Extract started on port ${serverPort}`)
+const serverTarget = process.env.NODE_ENV === "production" ? process.env.SOCKET_PATH : process.env.PORT || 8889
+if (!serverTarget) {
+    throw new Error("SOCKET_PATH is required in production")
+}
+const server = app.listen(serverTarget, () => {
+    console.log(`Extract started on ${serverTarget}`)
 })
 
 function shutdown(signal) {

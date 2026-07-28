@@ -1,154 +1,90 @@
-Extract
-=======
+# Extract
 
-Extract just the content from a web page.
+Extract turns [Mercury Parser](https://github.com/postlight/parser) into an
+authenticated web service that can run on a VM without platform-specific
+dependencies.
 
-Extract is a wrapper to turn the [Mercury Parser](https://github.com/postlight/parser) into a web service.
-
-Why?
-----
-
-Mercury already offers an [API component](https://github.com/postlight/parser-api), meant to be deployed to AWS Lambda. There are a few reasons why this exists as an alternative.
-
-1. Deploy elsewhere. Extract is meant to run in a VM, and has no platform specific dependencies.
-
-2. Built-in authorization system.
-
-3. Performance. In my experience, running it on a VM has been faster than the lambda version.
-
-Here's a graph where you can see a decrease in average response time around the `17. Feb` mark. This is when Feedbin switched from the lambda hosted version, to extract running on a VPS.
-
-![Response Time](https://user-images.githubusercontent.com/133809/53254496-54e85b00-3678-11e9-949a-f61824a4ac96.png)
-
-How it Works
+How it works
 ------------
 
-Extract is two processes, defined in the `Procfile`:
+One Express application authenticates each request and uses Mercury Parser to
+fetch and extract the requested page:
 
-- **web**: a Ruby ([Sinatra](https://sinatrarb.com)) app that authenticates requests and downloads the requested page.
-- **parser**: a Node.js service that wraps Mercury Parser. The web process sends it downloaded pages over HTTP, using the address in the `PARSER_URL` environment variable.
+```text
+app/app.js       HTTP routes, authentication, and parsing
+app/server.js    Node/Bun entry point and graceful shutdown
+```
 
 Installation
 ------------
 
-1. Install [Node.js](https://nodejs.org/en/) and [Ruby](https://www.ruby-lang.org/en/).
+Install Node.js 26
 
-2. Clone extract
+```bash
+git clone https://github.com/feedbin/extract.git
+cd extract
+npm ci
+```
 
-    ```bash
-    git clone https://github.com/feedbin/extract.git
-    ```
+Run the server in development:
 
-3. Install the dependencies.
+```bash
+PORT=8889 node app/server.js
+```
 
-    ```bash
-    cd extract
-    npm install
-    bundle install
-    ```
 
-4. Run both processes. With a Procfile runner like [foreman](https://github.com/ddollar/foreman):
+Run both compatibility suites with:
 
-    ```bash
-    foreman start
-    ```
+```bash
+npm test
+```
 
-    Or run them separately:
+Configuration
+-------------
 
-    ```bash
-    PORT=3001 node app/server.js
-    PARSER_URL=http://127.0.0.1:3001 bundle exec puma --port 8888
-    ```
-
-Usage
------
-
-Users are defined in a YAML file, where each key is a username and each value is that user's secret key:
+Users are defined in a YAML mapping where each key is a username and each value
+is that user's non-empty secret:
 
 ```yaml
-# users.yml
 username: secret
 ```
 
-Point the `EXTRACT_USERS` environment variable at this file when starting the web process:
+Set `EXTRACT_USERS` to the file path before starting the server:
 
 ```bash
-EXTRACT_USERS=users.yml PARSER_URL=http://127.0.0.1:3001 bundle exec puma --port 8888
+EXTRACT_USERS=users.yml PORT=8889 node app/server.js
 ```
 
-The file is read once at boot, so changes to it require a restart. If `EXTRACT_USERS` is not set, extract falls back to a single development user, username `demo` with the secret key `demo`. Do not rely on the default in production.
+The file is read once at boot, so changes require a restart. Development falls
+back to a `demo` user with secret `demo` when `EXTRACT_USERS` is unset.
+Production requires `EXTRACT_USERS` and refuses to start without it.
 
-Once a username and secret key has been created, you can make a request.
+API
+---
 
-An example request looks like:
+The service exposes:
 
-```
-http://localhost:8888/parser/:username/:signature?base64_url=:base64_url
-```
-
-The parts that you need are:
-
-- `username` your username
-- `signature` the hexadecimal HMAC-SHA1 signature of the URL you want to parse
-- `base64_url` base64 encoded version of the URL you want to parse
-
-The URL is base64-encoded to avoid any issues in the way different systems encode URLs. It must use the [RFC 4648](https://tools.ietf.org/html/rfc4648#section-5) url-safe variant with no newlines.
-
-If your platform does not offer a URL safe base64 option, you can replicate it. First create the base64 encoded string. Then replace the following characters:
-
-- `+` => `-`
-- `/` => `_`
-- `\n` => `""`
-
-Here's a sample implementation in ruby. You can use this as a reference for matching your implementation.
-
-```ruby
-require "uri"
-require "openssl"
-require "base64"
-
-username = "username"
-secret = "secret"
-host = "localhost"
-port = 8888
-url = "https://feedbin.com/blog/2018/09/11/private-by-default/"
-
-digest = OpenSSL::Digest.new("sha1")
-signature = OpenSSL::HMAC.hexdigest(digest, secret, url)
-
-base64_url = Base64.urlsafe_encode64(url).gsub("\n", "")
-
-URI::HTTP.build({
-  host: host,
-  port: port,
-  path: "/parser/#{username}/#{signature}",
-  query: "base64_url=#{base64_url}"
-}).to_s
+```text
+GET /health_check
+GET /parser/:username/:signature?base64_url=:base64_url
 ```
 
-The above example would produce:
+`signature` is the hexadecimal HMAC-SHA1 of the decoded URL using the user's
+secret. `base64_url` is canonical RFC 4648 URL-safe Base64, with optional valid
+padding and no whitespace.
 
-```
-http://localhost:8888/parser/username/e4696f8630bb68c21d77a9629ce8d063d8e5f81c?base64_url=aHR0cHM6Ly9mZWVkYmluLmNvbS9ibG9nLzIwMTgvMDkvMTEvcHJpdmF0ZS1ieS1kZWZhdWx0Lw==
-```
+This Node example constructs a request URL:
 
-With the output:
+```js
+const crypto = require("node:crypto")
 
-```json
-{
-    "title": "Private by Default",
-    "author": null,
-    "date_published": "2018-09-11T00:00:00.000Z",
-    "dek": null,
-    "lead_image_url": "https://assets.feedbin.com/assets-site/blog/2018-09-11/embed-3f43088538ae5ed7e585c00013adc13a915fd35de31990b3081a085b963ed7dd.png",
-    "content": "<div>content</div>",
-    "next_page_url": null,
-    "url": "https://feedbin.com/blog/2018/09/11/private-by-default/",
-    "domain": "feedbin.com",
-    "excerpt": "September 11, 2018 by Ben Ubois I want Feedbin to be the opposite of Big Social. I think people should have the right not to be tracked on the Internet and Feedbin can help facilitate that. Since&hellip;",
-    "word_count": 787,
-    "direction": "ltr",
-    "total_pages": 1,
-    "rendered_pages": 1
-}
+const username = "username"
+const secret = "secret"
+const url = "https://feedbin.com/blog/2018/09/11/private-by-default/"
+const signature = crypto.createHmac("sha1", secret).update(url).digest("hex")
+const encodedUrl = Buffer.from(url).toString("base64url")
+const requestUrl = new URL(`/parser/${username}/${signature}`, "http://localhost:8889")
+requestUrl.searchParams.set("base64_url", encodedUrl)
+
+console.log(requestUrl.toString())
 ```
